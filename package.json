@@ -1,0 +1,19 @@
+{
+  "name": "obelisk",
+  "version": "0.1.0",
+  "description": "A simulation of the turn-based board game \"Obelisk\", made by a fellow member of The Spiral Parlor",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "mocha"
+  },
+  "keywords": [
+    "obelisk",
+    "ai"
+  ],
+  "author": "Shad Amethyst",
+  "license": "MIT",
+  "dependencies": {
+    "mocha": "^9.2.1"
+  }
+}
