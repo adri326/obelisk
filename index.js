@@ -1,13 +1,13 @@
 
 
 export class Player {
-    constructor(walls = 1, soldiers = 1, barracks = 1, obelisks = 1, defense = 0) {
+    constructor(walls = 1, soldiers = 1, barracks = 1, obelisks = 1, defense = 0, busy = false) {
         this.walls = walls;
         this.soldiers = soldiers;
         this.barracks = barracks;
         this.obelisks = obelisks;
         this.defense = defense;
-        this.busy = false;
+        this.busy = busy;
     }
 
     // Sets all negative values to 0
@@ -16,6 +16,17 @@ export class Player {
         this.soldiers = Math.max(this.soldiers, 0);
         this.obelisks = Math.max(this.obelisks, 0);
         this.defense = Math.max(this.defense, 0);
+    }
+
+    static from(player) {
+        return new Player(
+            player.walls,
+            player.soldiers,
+            player.barracks,
+            player.obelisks,
+            player.defense,
+            player.busy
+        );
     }
 }
 
@@ -58,21 +69,21 @@ export function attack(player, attackers) {
     }
 }
 
-export function update(players, decisions) {
+export function update(players, actions) {
     // Step 1: update busy and defense statuses
     for (let n = 0; n < players.length; n++) {
-        if (decisions[n] === 'D') {
+        if (actions[n] === 'D') {
             players[n].defense = 2;
         } else if (players[n].defense > 0) {
             players[n].defense--;
         }
 
-        players[n].busy = decisions[n] === 'S' || typeof decisions[n] === "number";
+        players[n].busy = actions[n] === 'S' || typeof actions[n] === "number";
     }
 
     // Step 2: resolve attacks
     for (let n = 0; n < players.length; n++) {
-        let attackers = players.filter((p, i) => decisions[i] === n);
+        let attackers = players.filter((p, i) => actions[i] === n);
         if (attackers > 0) {
             attack(players[n], attackers);
         }
@@ -81,7 +92,7 @@ export function update(players, decisions) {
     // Step 3: produce resources
     for (let n = 0; n < players.length; n++) {
         let player = players[n];
-        switch (decisions[n]) {
+        switch (actions[n]) {
             case 'W':
                 player.walls = Math.min(player.walls + 1, 10);
                 break;
@@ -112,7 +123,7 @@ export function clean(players) {
 }
 
 export function possible_actions(players, n) {
-    if (players[n].obelisks === 0) return null;
+    if (players[n].obelisks === 0) return [null];
 
     let res = ['W', 'S', 'B', 'O'];
     if (players[n].walls > 0) res.push('D');
@@ -124,6 +135,35 @@ export function possible_actions(players, n) {
     }
 
     return res;
+}
+
+export function* combine_actions(players) {
+    let actions = [];
+    let count = [];
+    for (let n = 0; n < players.length; n++) {
+        actions.push(possible_actions(players, n));
+        count.push(0);
+    }
+
+    while (true) {
+        yield actions.map((a, i) => a[count[i]]);
+
+        count[0]++;
+        for (let n = 0; count[n] >= actions[n].length; n++) {
+            count[n] = 0;
+            if (n + 1 < count.length) count[n + 1]++;
+            else return;
+        }
+    }
+}
+
+export function update_clone(players, actions) {
+    let n_players = [];
+    for (let n = 0; n < players.length; n++) {
+        n_players.push(Player.from(players[n]));
+    }
+    update(n_players, actions);
+    return n_players;
 }
 
 let players = [
