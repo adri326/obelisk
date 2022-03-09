@@ -10,12 +10,12 @@ function dfs(state, depth = 2) {
 
         for (let n = 0; n < state.length; n++) {
             let player = state[n];
-            loss.push(
+            loss.push(-(
                 player.obelisks - max_obelisks
                 + (player.barracks - max_barracks) / 10
                 + (player.soldiers - max_soldiers) / 20
                 + (player.walls - max_walls) / 10
-            );
+            ));
         }
         return [loss, []];
     }
@@ -23,7 +23,7 @@ function dfs(state, depth = 2) {
     let loss = [];
     let best_actions = [];
     for (let n = 0; n < state.length; n++) {
-        loss.push(-Infinity);
+        loss.push(Infinity);
         best_actions.push(null);
     }
 
@@ -31,13 +31,13 @@ function dfs(state, depth = 2) {
         let next_state = obelisk.update_clone(state, actions);
         let [current_loss, next_actions] = dfs(next_state, depth - 1);
 
-        if (current_loss.reduce((acc, act) => acc + act) >= loss.reduce((acc, act) => acc + act)) {
+        if (current_loss.reduce((acc, act) => acc + act) <= loss.reduce((acc, act) => acc + act)) {
             best_actions = actions.map((a, i) => [a].concat(next_actions[i] ?? []));
             loss = current_loss;
         }
 
         // for (let n = 0; n < state.length; n++) {
-        //     if (current_loss[n] >= loss[n]) {
+        //     if (current_loss[n] <= loss[n]) {
         //         loss[n] = current_loss[n];
         //         best_actions[n] = [actions[n]].concat(next_actions[n] ?? []);
         //     }

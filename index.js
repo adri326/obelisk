@@ -18,6 +18,14 @@ export class Player {
         this.defense = Math.max(this.defense, 0);
     }
 
+    lost() {
+        return this.obelisks <= 0;
+    }
+
+    won() {
+        return this.obelisks >= 10;
+    }
+
     static from(player) {
         return new Player(
             player.walls,
