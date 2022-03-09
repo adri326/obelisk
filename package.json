@@ -14,6 +14,7 @@
   "author": "Shad Amethyst",
   "license": "MIT",
   "dependencies": {
+    "just-permutations": "^2.0.1",
     "mocha": "^9.2.1"
   }
 }

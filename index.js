@@ -23,16 +23,16 @@ export function attack(player, attackers) {
     attackers = attackers.filter(p => p.soldiers > 0);
 
     // Rivalry fights if multiple factions attack the same target: the highest player takes as damage the 2nd highest player's damage and is the only one remaining
-    if (attackers.length > 2) {
-        let sorted = attackers.sort((a, b) => a.soldiers - b.soldiers);
+    let sorted = attackers.sort((a, b) => b.soldiers - a.soldiers);
 
+    if (attackers.length >= 2) {
         sorted[0].soldiers -= sorted[1].soldiers;
         for (let n = 1; n < sorted.length; n++) {
             sorted[n].soldiers = 0;
         }
     }
 
-    let attacker = attackers[0];
+    let attacker = sorted[0];
 
     if (attacker.soldiers <= 0) return;
 
@@ -109,6 +109,21 @@ export function clean(players) {
         player.normalize();
         player.busy = false;
     }
+}
+
+export function possible_actions(players, n) {
+    if (players[n].obelisks === 0) return null;
+
+    let res = ['W', 'S', 'B', 'O'];
+    if (players[n].walls > 0) res.push('D');
+
+    if (players[n].soldiers > 0) {
+        for (let o = 0; o < players.length; o++) {
+            if (n !== o && players[o].obelisks > 0) res.push(o);
+        }
+    }
+
+    return res;
 }
 
 let players = [
