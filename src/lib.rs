@@ -259,4 +259,94 @@ pub mod test {
             Player::with_values(1, 2, 2, 1, 0),
         ]);
     }
+
+    #[test]
+    fn simulate_combat() {
+        // Lost
+        {
+            let mut attacked = Player::with_values(1, 3, 1, 1, 0);
+            let mut attacker = Player::with_values(1, 2, 1, 1, 0);
+
+            attacked.attacked(vec![&mut attacker]);
+
+            assert_eq!(attacked, Player::with_values(0, 2, 1, 1, 0));
+            assert_eq!(attacker, Player::with_values(1, 0, 1, 1, 0));
+        }
+
+        // Won
+        {
+            let mut attacked = Player::with_values(1, 3, 1, 1, 0);
+            let mut attacker = Player::with_values(1, 5, 1, 1, 0);
+
+            attacked.attacked(vec![&mut attacker]);
+
+            assert_eq!(attacked, Player::with_values(0, 0, 1, 0, 0));
+            assert_eq!(attacker, Player::with_values(1, 1, 1, 2, 0));
+        }
+
+        // Draw
+        {
+            let mut attacked = Player::with_values(1, 3, 1, 1, 0);
+            let mut attacker = Player::with_values(1, 4, 1, 1, 0);
+
+            attacked.attacked(vec![&mut attacker]);
+
+            assert_eq!(attacked, Player::with_values(0, 0, 1, 1, 0));
+            assert_eq!(attacker, Player::with_values(1, 0, 1, 1, 0));
+        }
+
+        // Two attackers: victory
+        {
+            let mut attacked = Player::with_values(1, 3, 1, 1, 0);
+            let mut attacker_1 = Player::with_values(1, 2, 1, 1, 0);
+            let mut attacker_2 = Player::with_values(1, 7, 1, 1, 0);
+
+            attacked.attacked(vec![&mut attacker_1, &mut attacker_2]);
+
+            assert_eq!(attacked, Player::with_values(0, 0, 1, 0, 0));
+            assert_eq!(attacker_1, Player::with_values(1, 0, 1, 1, 0));
+            assert_eq!(attacker_2, Player::with_values(1, 1, 1, 2, 0));
+        }
+
+        // Two attackers: annihilation
+        {
+            let mut attacked = Player::with_values(1, 3, 1, 1, 0);
+            let mut attacker_1 = Player::with_values(1, 2, 1, 1, 0);
+            let mut attacker_2 = Player::with_values(1, 2, 1, 1, 0);
+
+            attacked.attacked(vec![&mut attacker_1, &mut attacker_2]);
+
+            assert_eq!(attacked, Player::with_values(1, 3, 1, 1, 0));
+            assert_eq!(attacker_1, Player::with_values(1, 0, 1, 1, 0));
+            assert_eq!(attacker_2, Player::with_values(1, 0, 1, 1, 0));
+        }
+
+        // Two attackers: draw after rivalry fight
+        {
+            let mut attacked = Player::with_values(1, 3, 1, 1, 0);
+            let mut attacker_1 = Player::with_values(1, 2, 1, 1, 0);
+            let mut attacker_2 = Player::with_values(1, 6, 1, 1, 0);
+
+            attacked.attacked(vec![&mut attacker_1, &mut attacker_2]);
+
+            assert_eq!(attacked, Player::with_values(0, 0, 1, 1, 0));
+            assert_eq!(attacker_1, Player::with_values(1, 0, 1, 1, 0));
+            assert_eq!(attacker_2, Player::with_values(1, 0, 1, 1, 0));
+        }
+
+        // Three attackers
+        {
+            let mut attacked = Player::with_values(2, 2, 2, 3, 0);
+            let mut attacker_1 = Player::with_values(3, 20, 3, 2, 0);
+            let mut attacker_2 = Player::with_values(2, 15, 2, 1, 0);
+            let mut attacker_3 = Player::with_values(1, 13, 3, 1, 0);
+
+            attacked.attacked(vec![&mut attacker_1, &mut attacker_2, &mut attacker_3]);
+
+            assert_eq!(attacked, Player::with_values(0, 0, 2, 2, 0));
+            assert_eq!(attacker_1, Player::with_values(3, 1, 3, 3, 0));
+            assert_eq!(attacker_2, Player::with_values(2, 0, 2, 1, 0));
+            assert_eq!(attacker_3, Player::with_values(1, 0, 3, 1, 0));
+        }
+    }
 }
