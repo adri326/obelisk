@@ -254,6 +254,7 @@ impl Default for SimulationSettings {
     }
 }
 
+// TODO: optimize this further
 pub fn simulate_round(agents: &[SimpleAgent], settings: SimulationSettings) -> Vec<f64> {
     let mut loss = vec![0.0; agents.len()];
 

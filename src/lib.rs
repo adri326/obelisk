@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-
 pub mod genetic_basic;
 
 pub const MAX_WALLS: u8 = 10;
@@ -65,7 +63,7 @@ impl Player {
     }
 
     #[inline]
-    pub fn attacked<'b, P: std::ops::DerefMut<Target=Player>>(&'b mut self, mut attackers: Vec<P>) {
+    pub fn attacked<'b, P: std::ops::DerefMut<Target=Player>>(&'b mut self, attackers: &mut [P]) {
         // TODO: use copies of the values to make it easier for LLVM to optimize this away
         debug_assert!(attackers.iter().all(|p| p.soldiers > 0));
 
@@ -190,20 +188,29 @@ pub fn update(mut players: Vec<Player>, actions: &[Action]) -> Vec<Player> {
         player.busy = matches!(actions[n], Action::Attack(_) | Action::Recruit);
     }
 
-    // TODO: remove the need for this refcell thing
-
-    let players = players.into_iter().map(|p| RefCell::new(p)).collect::<Vec<_>>();
-
     for n in 0..players.len() {
-        let attackers = (0..players.len()).filter(|i| matches!(actions[*i], Action::Attack(x) if x == n)).collect::<Vec<_>>();
-        if attackers.len() > 0 {
-            debug_assert!(!attackers.iter().any(|i| *i == n));
-            debug_assert!(players[n].borrow().can_play());
-            players[n].borrow_mut().attacked(attackers.into_iter().map(|i| players[i].borrow_mut()).collect::<Vec<_>>());
-        }
-    }
+        // SAFETY: We have `{n} ∩ attackers = ø` (from the construction of attackers)
+        // We have `∀i, j, i ≠ j => attackers[i] ≠ attackers[j]` (from the construction of attackers)
+        // The lifetime of attackers cannot exceed this scope (from std::mem::drop)
+        // Thus `{n} ∪ attackers` is a safe partition of `players`, meaning that we can safely do `(&mut) o players[{n} ∪ attackers]`
 
-    let mut players = players.into_iter().map(|r| r.into_inner()).collect::<Vec<_>>();
+        let mut attackers = (0..players.len())
+            .filter(|&i| i != n && matches!(actions[i], Action::Attack(x) if x == n))
+            .map(|i| {
+                let ptr = (&mut players[i]) as *mut Player;
+                unsafe {
+                    &mut *ptr
+                }
+            })
+            .collect::<Vec<_>>();
+
+        if attackers.len() > 0 {
+            debug_assert!(players[n].can_play());
+
+            players[n].attacked(&mut attackers);
+        }
+        std::mem::drop(attackers);
+    }
 
     for (n, player) in players.iter_mut().enumerate() {
         match actions[n] {
@@ -303,7 +310,7 @@ pub mod test {
             let mut attacked = Player::with_values(1, 3, 1, 1, 0);
             let mut attacker = Player::with_values(1, 2, 1, 1, 0);
 
-            attacked.attacked(vec![&mut attacker]);
+            attacked.attacked(&mut vec![&mut attacker]);
 
             assert_eq!(attacked, Player::with_values(0, 2, 1, 1, 0));
             assert_eq!(attacker, Player::with_values(1, 0, 1, 1, 0));
@@ -314,7 +321,7 @@ pub mod test {
             let mut attacked = Player::with_values(1, 3, 1, 1, 0);
             let mut attacker = Player::with_values(1, 5, 1, 1, 0);
 
-            attacked.attacked(vec![&mut attacker]);
+            attacked.attacked(&mut vec![&mut attacker]);
 
             assert_eq!(attacked, Player::with_values(0, 0, 1, 0, 0));
             assert_eq!(attacker, Player::with_values(1, 1, 1, 2, 0));
@@ -325,7 +332,7 @@ pub mod test {
             let mut attacked = Player::with_values(1, 3, 1, 1, 0);
             let mut attacker = Player::with_values(1, 4, 1, 1, 0);
 
-            attacked.attacked(vec![&mut attacker]);
+            attacked.attacked(&mut vec![&mut attacker]);
 
             assert_eq!(attacked, Player::with_values(0, 0, 1, 1, 0));
             assert_eq!(attacker, Player::with_values(1, 0, 1, 1, 0));
@@ -337,7 +344,7 @@ pub mod test {
             let mut attacker_1 = Player::with_values(1, 2, 1, 1, 0);
             let mut attacker_2 = Player::with_values(1, 7, 1, 1, 0);
 
-            attacked.attacked(vec![&mut attacker_1, &mut attacker_2]);
+            attacked.attacked(&mut vec![&mut attacker_1, &mut attacker_2]);
 
             assert_eq!(attacked, Player::with_values(0, 0, 1, 0, 0));
             assert_eq!(attacker_1, Player::with_values(1, 0, 1, 1, 0));
@@ -350,7 +357,7 @@ pub mod test {
             let mut attacker_1 = Player::with_values(1, 2, 1, 1, 0);
             let mut attacker_2 = Player::with_values(1, 2, 1, 1, 0);
 
-            attacked.attacked(vec![&mut attacker_1, &mut attacker_2]);
+            attacked.attacked(&mut vec![&mut attacker_1, &mut attacker_2]);
 
             assert_eq!(attacked, Player::with_values(1, 3, 1, 1, 0));
             assert_eq!(attacker_1, Player::with_values(1, 0, 1, 1, 0));
@@ -363,7 +370,7 @@ pub mod test {
             let mut attacker_1 = Player::with_values(1, 2, 1, 1, 0);
             let mut attacker_2 = Player::with_values(1, 6, 1, 1, 0);
 
-            attacked.attacked(vec![&mut attacker_1, &mut attacker_2]);
+            attacked.attacked(&mut vec![&mut attacker_1, &mut attacker_2]);
 
             assert_eq!(attacked, Player::with_values(0, 0, 1, 1, 0));
             assert_eq!(attacker_1, Player::with_values(1, 0, 1, 1, 0));
@@ -377,7 +384,7 @@ pub mod test {
             let mut attacker_2 = Player::with_values(2, 15, 2, 1, 0);
             let mut attacker_3 = Player::with_values(1, 13, 3, 1, 0);
 
-            attacked.attacked(vec![&mut attacker_1, &mut attacker_2, &mut attacker_3]);
+            attacked.attacked(&mut vec![&mut attacker_1, &mut attacker_2, &mut attacker_3]);
 
             assert_eq!(attacked, Player::with_values(0, 0, 2, 2, 0));
             assert_eq!(attacker_1, Player::with_values(3, 1, 3, 3, 0));
