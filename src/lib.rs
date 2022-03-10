@@ -1,5 +1,7 @@
 use std::cell::RefCell;
 
+pub mod genetic_basic;
+
 pub const MAX_WALLS: u8 = 10;
 pub const MAX_BARRACKS: u8 = 10;
 pub const MAX_OBELISKS: u8 = 10;
@@ -112,7 +114,7 @@ impl Player {
         }
 
         if self.barracks < MAX_BARRACKS {
-            res.push(Action::Barrack);
+            res.push(Action::Barracks);
         }
 
         if self.obelisks < MAX_OBELISKS {
@@ -135,12 +137,21 @@ impl Player {
 pub enum Action {
     Wall,
     Recruit,
-    Barrack,
+    Barracks,
     Obelisk,
     Defend,
     Attack(usize), // player
     Skip,
     None
+}
+
+impl From<Option<Action>> for Action {
+    fn from(opt: Option<Action>) -> Action {
+        match opt {
+            Some(action) => action,
+            None => Action::None
+        }
+    }
 }
 
 #[inline]
@@ -173,7 +184,7 @@ pub fn update(mut players: Vec<Player>, actions: &[Action]) -> Vec<Player> {
     for (n, player) in players.iter_mut().enumerate() {
         match actions[n] {
             Action::Wall if player.walls < MAX_WALLS => player.walls += 1,
-            Action::Barrack if player.barracks < MAX_BARRACKS => player.barracks += 1,
+            Action::Barracks if player.barracks < MAX_BARRACKS => player.barracks += 1,
             Action::Obelisk if player.obelisks < MAX_OBELISKS => player.obelisks += 1,
             Action::Recruit => player.soldiers += player.barracks as u32,
             Action::Skip => player.soldiers += 1,
@@ -197,15 +208,15 @@ pub mod test {
 
         let decisions_0 = [
             Action::Wall,
-            Action::Barrack,
-            Action::Barrack,
+            Action::Barracks,
+            Action::Barracks,
             Action::Obelisk,
-            Action::Barrack,
+            Action::Barracks,
             Action::Skip,
-            Action::Barrack,
+            Action::Barracks,
             Action::Wall,
             Action::Wall,
-            Action::Barrack,
+            Action::Barracks,
             Action::Skip,
             Action::Skip
         ];
@@ -228,18 +239,18 @@ pub mod test {
         ]);
 
         let decisions_1 = [
-            Action::Barrack,
+            Action::Barracks,
             Action::Wall,
             Action::Wall,
             Action::Wall,
             Action::Wall,
             Action::Skip,
             Action::Wall,
-            Action::Barrack,
-            Action::Barrack,
+            Action::Barracks,
+            Action::Barracks,
             Action::Wall,
-            Action::Barrack,
-            Action::Barrack
+            Action::Barracks,
+            Action::Barracks
         ];
 
         state = update(state, &decisions_1);
