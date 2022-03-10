@@ -107,6 +107,7 @@ impl SimpleAgent {
         }
     }
 
+    #[inline]
     pub fn get_action(&self, players: &[Player], index: usize, step: usize, rng: &mut impl Rng) -> Action {
         if !players[index].can_play() {
             return Action::None;
@@ -182,10 +183,10 @@ pub fn compute_loss(players: &[Player], index: usize) -> f64 {
         x.soldiers as f64,
         x.walls as f64,
     )).reduce(|acc, act| (
-        acc.0 + act.0,
-        acc.1 + act.1,
-        acc.2 + act.2,
-        acc.3 + act.3,
+        acc.0.max(act.0),
+        acc.1.max(act.1),
+        acc.2.max(act.2),
+        acc.3.max(act.3),
     )).unwrap_or((0.0, 0.0, 0.0, 0.0));
 
     let player = &players[index];
@@ -205,6 +206,7 @@ pub struct SimulationSettings {
     pub population: usize,
     pub retain_population: usize,
     pub reproduce_population: usize,
+    pub new_population: usize,
     pub mutation: f64,
     pub sexuated_reproduction: bool,
 }
@@ -219,6 +221,7 @@ impl Default for SimulationSettings {
             population: 1000,
             retain_population: 500,
             reproduce_population: 250,
+            new_population: 50,
             mutation: 0.02,
             sexuated_reproduction: true,
         }
@@ -251,7 +254,8 @@ pub fn simulate_round(agents: &[SimpleAgent], settings: SimulationSettings) -> V
 
             // Compute loss
             for (n, (i, _agent)) in group.into_iter().enumerate() {
-                loss[*i] += compute_loss(&players, n);
+                let tmp = compute_loss(&players, n);
+                loss[*i] += tmp * tmp;
             }
         }
     }
@@ -270,7 +274,9 @@ pub fn selection(agents: Vec<SimpleAgent>, loss: Vec<f64>, settings: SimulationS
     let mut rng = rand::thread_rng();
 
     for n in settings.retain_population..agents.len() {
-        if settings.sexuated_reproduction {
+        if n < settings.retain_population + settings.new_population {
+            agents[n] = SimpleAgent::from_rng(settings.n_steps, &mut rng);
+        } else if settings.sexuated_reproduction {
             let new_agent = {
                 let female = agents[0..settings.reproduce_population].choose(&mut rng).unwrap();
                 let male = agents[0..settings.reproduce_population].choose(&mut rng).unwrap();

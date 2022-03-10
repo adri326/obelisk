@@ -11,6 +11,7 @@ pub struct Player {
     pub soldiers: u32,
     pub walls: u8,
     pub busy: bool,
+    pub sieged: bool,
     pub defense: u8,
 
     pub barracks: u8,
@@ -24,8 +25,9 @@ impl Player {
             soldiers: 1,
             barracks: 1,
             obelisks: 1,
+            defense: 0,
             busy: false,
-            defense: 0
+            sieged: false,
         }
     }
 
@@ -36,7 +38,8 @@ impl Player {
             barracks,
             obelisks,
             defense,
-            busy: false
+            busy: false,
+            sieged: false,
         }
     }
 
@@ -92,6 +95,7 @@ impl Player {
         }
 
         if attacker.soldiers > 0 {
+            self.sieged = true;
             self.obelisks -= 1;
             attacker.obelisks += 1;
         }
@@ -185,7 +189,7 @@ pub fn update(mut players: Vec<Player>, actions: &[Action]) -> Vec<Player> {
         match actions[n] {
             Action::Wall if player.walls < MAX_WALLS => player.walls += 1,
             Action::Barracks if player.barracks < MAX_BARRACKS => player.barracks += 1,
-            Action::Obelisk if player.obelisks < MAX_OBELISKS => player.obelisks += 1,
+            Action::Obelisk if player.obelisks < MAX_OBELISKS && !player.sieged => player.obelisks += 1,
             Action::Recruit => player.soldiers += player.barracks as u32,
             Action::Skip => player.soldiers += 1,
             Action::None => debug_assert!(!player.can_play()),
@@ -193,6 +197,7 @@ pub fn update(mut players: Vec<Player>, actions: &[Action]) -> Vec<Player> {
         }
 
         player.busy = false; // TODO: remove busy from partialeq
+        player.sieged = false;
     }
 
     players
