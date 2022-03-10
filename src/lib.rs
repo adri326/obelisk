@@ -6,7 +6,7 @@ pub const MAX_WALLS: u8 = 10;
 pub const MAX_BARRACKS: u8 = 10;
 pub const MAX_OBELISKS: u8 = 10;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Player {
     pub soldiers: u32,
     pub walls: u8,
@@ -16,6 +16,8 @@ pub struct Player {
 
     pub barracks: u8,
     pub obelisks: u8,
+    pub victories: usize,
+    pub defeats: usize,
 }
 
 impl Player {
@@ -28,6 +30,8 @@ impl Player {
             defense: 0,
             busy: false,
             sieged: false,
+            victories: 0,
+            defeats: 0
         }
     }
 
@@ -40,6 +44,8 @@ impl Player {
             defense,
             busy: false,
             sieged: false,
+            victories: 0,
+            defeats: 0
         }
     }
 
@@ -96,6 +102,8 @@ impl Player {
 
         if attacker.soldiers > 0 {
             self.sieged = true;
+            self.defeats += 1;
+            attacker.victories += 1;
             self.obelisks -= 1;
             attacker.obelisks += 1;
         }
@@ -137,6 +145,16 @@ impl Player {
     }
 }
 
+impl PartialEq for Player {
+    fn eq(&self, other: &Player) -> bool {
+        self.soldiers == other.soldiers &&
+        self.walls == other.walls &&
+        self.defense == other.defense &&
+        self.barracks == other.barracks &&
+        self.obelisks == other.obelisks
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Wall,
@@ -171,6 +189,8 @@ pub fn update(mut players: Vec<Player>, actions: &[Action]) -> Vec<Player> {
 
         player.busy = matches!(actions[n], Action::Attack(_) | Action::Recruit);
     }
+
+    // TODO: remove the need for this refcell thing
 
     let players = players.into_iter().map(|p| RefCell::new(p)).collect::<Vec<_>>();
 

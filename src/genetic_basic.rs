@@ -1,5 +1,6 @@
 use super::*;
 use rand::prelude::*;
+use smallvec::SmallVec;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SimpleAgentAction {
@@ -107,6 +108,16 @@ impl SimpleAgent {
         }
     }
 
+    pub fn irradiate(&mut self, radiation: f64) {
+        let mut rng = rand::thread_rng();
+
+        for n in 0..self.genome.len() {
+            if rng.gen_bool(radiation) {
+                self.genome[n] = SimpleAgentAction::rand(&mut rng);
+            }
+        }
+    }
+
     #[inline]
     pub fn get_action(&self, players: &[Player], index: usize, step: usize, rng: &mut impl Rng) -> Action {
         if !players[index].can_play() {
@@ -117,10 +128,10 @@ impl SimpleAgent {
         }
 
         if self.genome[step] == SimpleAgentAction::Attack {
-            let targets = players.iter().enumerate().filter(|&(n, p)| {
+            let targets: SmallVec<[usize; 10]> = players.iter().enumerate().filter(|&(n, p)| {
                 let strength = p.walls as u32 * if p.defense > 0 {2} else {1} + p.soldiers;
                 return n != index && strength < players[index].soldiers && p.can_play()
-            }).map(|(n, _p)| n).collect::<Vec<_>>();
+            }).map(|(n, _p)| n).collect::<SmallVec<_>>();
 
             if targets.len() > 0 {
                 return Action::Attack(*targets.choose(rng).unwrap());
@@ -162,7 +173,7 @@ impl std::fmt::Display for SimpleAgent {
 
         write!(
             f,
-            " (W: {}, S: {}, B: {}, O: {}, A: {}, D: {}, N: {})",
+            " (W: {:2}, S: {:2}, B: {:2}, O: {:2}, A: {:2}, D: {:2}, N: {:2})",
             count(&self.genome, Wall),
             count(&self.genome, Recruit),
             count(&self.genome, Barracks),
@@ -191,10 +202,23 @@ pub fn compute_loss(players: &[Player], index: usize) -> f64 {
 
     let player = &players[index];
 
-    (10.0 + max_obelisks) / 2.0 - player.obelisks as f64
-        + (max_barracks - player.barracks as f64) / 10.0
-        + (max_soldiers - player.soldiers as f64) / 20.0
-        + (max_walls - player.walls as f64) / 10.0
+    let mut res = (10.0 + max_obelisks) / 2.0 - player.obelisks as f64
+        + (max_barracks - player.barracks as f64) / 5.0
+        + (max_soldiers - player.soldiers as f64) / 10.0
+        + (max_walls - player.walls as f64) / 5.0;
+
+    if player.obelisks == 0 {
+        res += 4.0;
+    }
+
+    if max_obelisks == 10.0 {
+        res += 2.0; // penalty for not winning the game first
+    }
+
+    res += player.defeats as f64 * 0.5; // penalty for losing sieges
+    res += (player.victories as f64 * -0.5).exp() * 4.0; // bonus for winning sieges
+
+    res
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -208,6 +232,7 @@ pub struct SimulationSettings {
     pub reproduce_population: usize,
     pub new_population: usize,
     pub mutation: f64,
+    pub radiation: f64,
     pub sexuated_reproduction: bool,
 }
 
@@ -223,6 +248,7 @@ impl Default for SimulationSettings {
             reproduce_population: 250,
             new_population: 50,
             mutation: 0.02,
+            radiation: 0.002,
             sexuated_reproduction: true,
         }
     }
@@ -273,6 +299,10 @@ pub fn selection(agents: Vec<SimpleAgent>, loss: Vec<f64>, settings: SimulationS
     let mut agents = agents.into_iter().map(|(_, a)| a).collect::<Vec<_>>();
     let mut rng = rand::thread_rng();
 
+    for n in 0..settings.retain_population {
+        agents[n].irradiate(settings.radiation);
+    }
+
     for n in settings.retain_population..agents.len() {
         if n < settings.retain_population + settings.new_population {
             agents[n] = SimpleAgent::from_rng(settings.n_steps, &mut rng);
@@ -310,6 +340,6 @@ pub fn print_best(agents: &Vec<SimpleAgent>, loss: &Vec<f64>, best_n: usize) {
     agents.sort_unstable_by(|(n1, _), (n2, _)| loss[*n1].partial_cmp(&loss[*n2]).unwrap());
 
     for (index, agent) in agents.iter().take(best_n) {
-        println!("{:04}: {} | Loss: {:.2}", index, agent, loss[*index]);
+        println!("{:05}: {} | Loss: {:.3}", index, agent, loss[*index]);
     }
 }
