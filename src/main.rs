@@ -2,19 +2,21 @@
 use obelisk::genetic_basic::*;
 use scoped_threadpool::Pool;
 use std::sync::Mutex;
+use std::fs::File;
+use std::io::Write;
 
-pub fn main() {
+pub fn main() -> std::io::Result<()> {
     const N: usize = 100;
     let settings = SimulationSettings {
-        sub_rounds: 50,
+        sub_rounds: 100,
         group_size: 12,
-        n_steps: 40,
+        n_steps: 50,
         population: 100 * N,
-        new_population: 25 * N,
-        retain_population: 50 * N,
-        reproduce_population: 25 * N,
-        mutation: 0.3,
-        radiation: 0.015,
+        new_population: 10 * N,
+        retain_population: 75 * N,
+        reproduce_population: 10 * N,
+        mutation: 0.2,
+        radiation: 0.01,
         sexuated_reproduction: true,
 
         ..Default::default()
@@ -27,7 +29,7 @@ pub fn main() {
     const N_THREADS: usize = 16;
     let mut pool = Pool::new(N_THREADS as u32);
 
-    for round in 1..=1000 {
+    for round in 1..=2000 {
         let losses = Mutex::new(Vec::with_capacity(N_THREADS));
         pool.scoped(|scope| {
             for _ in 0..N_THREADS {
@@ -55,8 +57,18 @@ pub fn main() {
         if round % 50 == 0 {
             println!("=== Round {} ===", round);
             print_best(&agents, &loss, 20);
+
+            let mut file = File::create(format!("target/tmp-{}.json", round))?;
+            write!(file, "{}", serde_json::to_string(&agents).expect("Couldn't serialize agents!"))?;
+        } else {
+            println!("Round {}", round);
         }
 
         agents = selection(agents, loss, settings);
     }
+
+    let mut file = File::create("target/out.json")?;
+    write!(file, "{}", serde_json::to_string(&agents).expect("Couldn't serialize agents!"))?;
+
+    Ok(())
 }

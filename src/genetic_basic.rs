@@ -1,8 +1,9 @@
 use super::*;
 use rand::prelude::*;
 use smallvec::SmallVec;
+use serde::{Serialize, Deserialize};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SimpleAgentAction {
     Wall,
     Recruit,
@@ -42,6 +43,7 @@ impl From<SimpleAgentAction> for Action {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct SimpleAgent {
     pub genome: Vec<SimpleAgentAction>,
 }
