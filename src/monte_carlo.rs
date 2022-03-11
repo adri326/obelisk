@@ -11,9 +11,10 @@ pub fn mc_best_action<Ai, Loss>(
     index: usize,
     samples: usize,
     max_rounds: usize,
+    round_offset: usize,
     ai: Ai,
     compute_loss: Loss
-) -> Action
+) -> (Action, Vec<(Action, f64, f64)>)
 where
     Ai: for<'c> AiFn<'c, rand::rngs::ThreadRng> + Copy,
     Loss: for<'c> Fn(&'c [Player], usize) -> f64 + Copy,
@@ -21,17 +22,18 @@ where
     let iter = players.iter().enumerate().filter(|(n, _p)| *n != index);
 
     let mut best = (f64::INFINITY, Action::None);
+    let mut actions = Vec::new();
     for action in players[index].possible_actions(iter) {
-        let (loss, variance) = monte_carlo(players, index, action, samples, max_rounds, ai, compute_loss);
+        let (loss, variance) = monte_carlo(players, index, action, samples, max_rounds, round_offset, ai, compute_loss);
 
-        println!("{:?}: {:.3}", action, loss);
+        actions.push((action, loss, variance));
 
         if loss < best.0 {
             best = (loss, action);
         }
     }
 
-    best.1
+    (best.1, actions)
 }
 
 pub fn monte_carlo<Ai, Loss>(
@@ -40,6 +42,7 @@ pub fn monte_carlo<Ai, Loss>(
     action: Action,
     samples: usize,
     max_rounds: usize,
+    round_offset: usize,
     ai: Ai,
     compute_loss: Loss,
 ) -> (f64, f64)
@@ -64,10 +67,10 @@ where
             }
 
             let value: f64 = rng.gen();
-            actions[n] = ai(&players, n, 0, value, &mut rng);
+            actions[n] = ai(&players, n, round_offset, value, &mut rng);
         }
 
-        let final_state = simulate(players, actions, ai, &mut rng, max_rounds);
+        let final_state = simulate(players, actions, ai, &mut rng, max_rounds, round_offset);
         let loss = compute_loss(&final_state, index);
 
         sum += loss;
@@ -87,6 +90,7 @@ fn simulate<Ai, R>(
     ai: Ai,
     rng: &mut R,
     max_rounds: usize,
+    round_offset: usize,
 ) -> Vec<Player>
 where
     R: Rng,
@@ -101,7 +105,7 @@ where
 
         for n in 0..players.len() {
             let value: f64 = rng.gen();
-            actions[n] = ai(&players, n, round, value, rng);
+            actions[n] = ai(&players, n, round + round_offset, value, rng);
         }
 
         players = update(players, &actions);
