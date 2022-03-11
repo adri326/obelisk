@@ -22,3 +22,8 @@ harness = false
 
 [profile.release]
 debug = true
+
+[[bin]]
+name = "evaluate"
+test = false
+bench = false

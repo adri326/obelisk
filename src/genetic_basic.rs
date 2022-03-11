@@ -113,12 +113,12 @@ impl SimpleAgent {
     }
 
     #[inline]
-    pub fn get_action(
-        &self,
-        players: &[Player],
+    pub fn get_action<'b>(
+        &'b self,
+        players: &'b [Player],
         index: usize,
         step: usize,
-        rng: &mut impl Rng,
+        rng: &'b mut impl Rng,
     ) -> Action {
         if !players[index].can_play() {
             return Action::None;

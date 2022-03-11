@@ -1,4 +1,5 @@
 // use obelisk::*;
+use obelisk::monte_carlo::*;
 use obelisk::genetic_basic::*;
 use scoped_threadpool::Pool;
 use std::fs::File;
@@ -6,9 +7,9 @@ use std::io::Write;
 use std::sync::Mutex;
 
 pub fn main() -> std::io::Result<()> {
-    const N: usize = 100;
+    const N: usize = 10;
     let settings = SimulationSettings {
-        sub_rounds: 100,
+        sub_rounds: 50,
         group_size: 12,
         n_steps: 50,
         population: 100 * N,
@@ -26,10 +27,10 @@ pub fn main() -> std::io::Result<()> {
     let mut agents = new_agents(settings);
     println!("Initialization done!");
 
-    const N_THREADS: usize = 16;
+    const N_THREADS: usize = 4;
     let mut pool = Pool::new(N_THREADS as u32);
 
-    for round in 1..=2000 {
+    for round in 1..=1000 {
         let losses = Mutex::new(Vec::with_capacity(N_THREADS));
         pool.scoped(|scope| {
             for _ in 0..N_THREADS {

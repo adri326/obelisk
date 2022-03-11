@@ -1,4 +1,7 @@
+#![feature(trait_alias)]
+
 pub mod genetic_basic;
+pub mod monte_carlo;
 
 pub const MAX_WALLS: u8 = 10;
 pub const MAX_BARRACKS: u8 = 10;
