@@ -1,7 +1,7 @@
 use super::*;
 use rand::prelude::*;
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SimpleAgentAction {
@@ -11,7 +11,7 @@ pub enum SimpleAgentAction {
     Obelisk,
     Attack,
     Defend,
-    Skip
+    Skip,
 }
 
 impl SimpleAgentAction {
@@ -57,9 +57,7 @@ impl SimpleAgent {
             genome.push(SimpleAgentAction::rand(&mut rng));
         }
 
-        Self {
-            genome
-        }
+        Self { genome }
     }
 
     pub fn from_rng(steps: usize, rng: &mut impl Rng) -> Self {
@@ -69,9 +67,7 @@ impl SimpleAgent {
             genome.push(SimpleAgentAction::rand(rng));
         }
 
-        Self {
-            genome
-        }
+        Self { genome }
     }
 
     pub fn mutate(&self, mutation: f64) -> Self {
@@ -85,9 +81,7 @@ impl SimpleAgent {
             }
         }
 
-        Self {
-            genome: new_genome
-        }
+        Self { genome: new_genome }
     }
 
     pub fn breed(&self, partner: &SimpleAgent, mutation: f64) -> Self {
@@ -105,9 +99,7 @@ impl SimpleAgent {
             }
         }
 
-        Self {
-            genome: new_genome
-        }
+        Self { genome: new_genome }
     }
 
     pub fn irradiate(&mut self, radiation: f64) {
@@ -121,7 +113,13 @@ impl SimpleAgent {
     }
 
     #[inline]
-    pub fn get_action(&self, players: &[Player], index: usize, step: usize, rng: &mut impl Rng) -> Action {
+    pub fn get_action(
+        &self,
+        players: &[Player],
+        index: usize,
+        step: usize,
+        rng: &mut impl Rng,
+    ) -> Action {
         if !players[index].can_play() {
             return Action::None;
         }
@@ -130,10 +128,15 @@ impl SimpleAgent {
         }
 
         if self.genome[step] == SimpleAgentAction::Attack {
-            let targets: SmallVec<[usize; 10]> = players.iter().enumerate().filter(|&(n, p)| {
-                let strength = p.walls as u32 * if p.defense > 0 {2} else {1} + p.soldiers;
-                return n != index && strength < players[index].soldiers && p.can_play()
-            }).map(|(n, _p)| n).collect::<SmallVec<_>>();
+            let targets: SmallVec<[usize; 10]> = players
+                .iter()
+                .enumerate()
+                .filter(|&(n, p)| {
+                    let strength = p.walls as u32 * if p.defense > 0 { 2 } else { 1 } + p.soldiers;
+                    return n != index && strength < players[index].soldiers && p.can_play();
+                })
+                .map(|(n, _p)| n)
+                .collect::<SmallVec<_>>();
 
             if targets.len() > 0 {
                 return Action::Attack(*targets.choose(rng).unwrap());
@@ -158,15 +161,19 @@ impl std::fmt::Display for SimpleAgent {
                 write!(f, "→")?;
             }
 
-            write!(f, "{}", match gene {
-                Wall => "W",
-                Recruit => "S",
-                Barracks => "B",
-                Obelisk => "O",
-                Attack => "A",
-                Defend => "D",
-                Skip => "N",
-            })?;
+            write!(
+                f,
+                "{}",
+                match gene {
+                    Wall => "W",
+                    Recruit => "S",
+                    Barracks => "B",
+                    Obelisk => "O",
+                    Attack => "A",
+                    Defend => "D",
+                    Skip => "N",
+                }
+            )?;
         }
 
         fn count(genome: &[SimpleAgentAction], target: SimpleAgentAction) -> usize {
@@ -190,17 +197,24 @@ impl std::fmt::Display for SimpleAgent {
 pub fn compute_loss(players: &[Player], index: usize) -> f64 {
     let iter = players.iter().enumerate().filter(|(n, _p)| *n != index);
 
-    let (max_obelisks, max_barracks, max_soldiers, max_walls) = iter.map(|(_, x)| (
-        x.obelisks as f64,
-        x.barracks as f64,
-        x.soldiers as f64,
-        x.walls as f64,
-    )).reduce(|acc, act| (
-        acc.0.max(act.0),
-        acc.1.max(act.1),
-        acc.2.max(act.2),
-        acc.3.max(act.3),
-    )).unwrap_or((0.0, 0.0, 0.0, 0.0));
+    let (max_obelisks, max_barracks, max_soldiers, max_walls) = iter
+        .map(|(_, x)| {
+            (
+                x.obelisks as f64,
+                x.barracks as f64,
+                x.soldiers as f64,
+                x.walls as f64,
+            )
+        })
+        .reduce(|acc, act| {
+            (
+                acc.0.max(act.0),
+                acc.1.max(act.1),
+                acc.2.max(act.2),
+                acc.3.max(act.3),
+            )
+        })
+        .unwrap_or((0.0, 0.0, 0.0, 0.0));
 
     let player = &players[index];
 
@@ -270,9 +284,11 @@ pub fn simulate_round(agents: &[SimpleAgent], settings: SimulationSettings) -> V
 
             for step in 0..settings.n_steps {
                 // Collect the actions of each agent
-                let actions = group.iter().enumerate().map(|(i, (_, agent))| {
-                    agent.get_action(&players, i, step, &mut rng)
-                }).collect::<Vec<_>>();
+                let actions = group
+                    .iter()
+                    .enumerate()
+                    .map(|(i, (_, agent))| agent.get_action(&players, i, step, &mut rng))
+                    .collect::<Vec<_>>();
 
                 players = update(players, &actions);
 
@@ -296,7 +312,11 @@ pub fn simulate_round(agents: &[SimpleAgent], settings: SimulationSettings) -> V
     loss
 }
 
-pub fn selection(agents: Vec<SimpleAgent>, loss: Vec<f64>, settings: SimulationSettings) -> Vec<SimpleAgent> {
+pub fn selection(
+    agents: Vec<SimpleAgent>,
+    loss: Vec<f64>,
+    settings: SimulationSettings,
+) -> Vec<SimpleAgent> {
     let mut agents = agents.into_iter().enumerate().collect::<Vec<_>>();
     agents.sort_unstable_by(|(n1, _), (n2, _)| loss[*n1].partial_cmp(&loss[*n2]).unwrap());
     let mut agents = agents.into_iter().map(|(_, a)| a).collect::<Vec<_>>();
@@ -311,13 +331,20 @@ pub fn selection(agents: Vec<SimpleAgent>, loss: Vec<f64>, settings: SimulationS
             agents[n] = SimpleAgent::from_rng(settings.n_steps, &mut rng);
         } else if settings.sexuated_reproduction {
             let new_agent = {
-                let female = agents[0..settings.reproduce_population].choose(&mut rng).unwrap();
-                let male = agents[0..settings.reproduce_population].choose(&mut rng).unwrap();
+                let female = agents[0..settings.reproduce_population]
+                    .choose(&mut rng)
+                    .unwrap();
+                let male = agents[0..settings.reproduce_population]
+                    .choose(&mut rng)
+                    .unwrap();
                 female.breed(male, settings.mutation)
             };
             agents[n] = new_agent;
         } else {
-            let new_agent = agents[0..settings.reproduce_population].choose(&mut rng).unwrap().mutate(settings.mutation);
+            let new_agent = agents[0..settings.reproduce_population]
+                .choose(&mut rng)
+                .unwrap()
+                .mutate(settings.mutation);
 
             agents[n] = new_agent;
         }

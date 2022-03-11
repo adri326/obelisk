@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion, black_box};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use obelisk::*;
 
 fn bench_update(c: &mut Criterion) {
@@ -16,7 +16,7 @@ fn bench_update(c: &mut Criterion) {
         Action::Wall,
         Action::Barracks,
         Action::Attack(1),
-        Action::Skip
+        Action::Skip,
     ];
 
     c.bench_function("update", |b| {

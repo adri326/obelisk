@@ -1,9 +1,9 @@
 // use obelisk::*;
 use obelisk::genetic_basic::*;
 use scoped_threadpool::Pool;
-use std::sync::Mutex;
 use std::fs::File;
 use std::io::Write;
+use std::sync::Mutex;
 
 pub fn main() -> std::io::Result<()> {
     const N: usize = 100;
@@ -59,7 +59,11 @@ pub fn main() -> std::io::Result<()> {
             print_best(&agents, &loss, 20);
 
             let mut file = File::create(format!("target/tmp-{}.json", round))?;
-            write!(file, "{}", serde_json::to_string(&agents).expect("Couldn't serialize agents!"))?;
+            write!(
+                file,
+                "{}",
+                serde_json::to_string(&agents).expect("Couldn't serialize agents!")
+            )?;
         } else {
             println!("Round {}", round);
         }
@@ -68,7 +72,11 @@ pub fn main() -> std::io::Result<()> {
     }
 
     let mut file = File::create("target/out.json")?;
-    write!(file, "{}", serde_json::to_string(&agents).expect("Couldn't serialize agents!"))?;
+    write!(
+        file,
+        "{}",
+        serde_json::to_string(&agents).expect("Couldn't serialize agents!")
+    )?;
 
     Ok(())
 }

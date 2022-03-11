@@ -29,7 +29,7 @@ impl Player {
             busy: false,
             sieged: false,
             victories: 0,
-            defeats: 0
+            defeats: 0,
         }
     }
 
@@ -43,7 +43,7 @@ impl Player {
             busy: false,
             sieged: false,
             victories: 0,
-            defeats: 0
+            defeats: 0,
         }
     }
 
@@ -63,7 +63,7 @@ impl Player {
     }
 
     #[inline]
-    pub fn attacked<'b, P: std::ops::DerefMut<Target=Player>>(&'b mut self, attackers: &mut [P]) {
+    pub fn attacked<'b, P: std::ops::DerefMut<Target = Player>>(&'b mut self, attackers: &mut [P]) {
         // TODO: use copies of the values to make it easier for LLVM to optimize this away
         debug_assert!(attackers.iter().all(|p| p.soldiers > 0));
 
@@ -79,14 +79,14 @@ impl Player {
         let attacker = &mut attackers[0];
 
         if attacker.soldiers == 0 {
-            return
+            return;
         }
 
         let walls: u32 = self.walls as u32 * if self.defense > 0 { 2 } else { 1 };
         if attacker.soldiers <= walls {
             self.walls = ((walls - attacker.soldiers) / if self.defense > 0 { 2 } else { 1 }) as u8;
             attacker.soldiers = 0;
-            return
+            return;
         } else {
             attacker.soldiers -= walls;
             self.walls = 0;
@@ -108,7 +108,10 @@ impl Player {
     }
 
     #[inline]
-    pub fn possible_actions<'b, I: Iterator<Item=(usize, &'b Player)>>(&self, players: I) -> Vec<Action> {
+    pub fn possible_actions<'b, I: Iterator<Item = (usize, &'b Player)>>(
+        &self,
+        players: I,
+    ) -> Vec<Action> {
         if !self.can_play() {
             return vec![Action::None];
         }
@@ -145,11 +148,11 @@ impl Player {
 
 impl PartialEq for Player {
     fn eq(&self, other: &Player) -> bool {
-        self.soldiers == other.soldiers &&
-        self.walls == other.walls &&
-        self.defense == other.defense &&
-        self.barracks == other.barracks &&
-        self.obelisks == other.obelisks
+        self.soldiers == other.soldiers
+            && self.walls == other.walls
+            && self.defense == other.defense
+            && self.barracks == other.barracks
+            && self.obelisks == other.obelisks
     }
 }
 
@@ -162,14 +165,14 @@ pub enum Action {
     Defend,
     Attack(usize), // player
     Skip,
-    None
+    None,
 }
 
 impl From<Option<Action>> for Action {
     fn from(opt: Option<Action>) -> Action {
         match opt {
             Some(action) => action,
-            None => Action::None
+            None => Action::None,
         }
     }
 }
@@ -198,9 +201,7 @@ pub fn update(mut players: Vec<Player>, actions: &[Action]) -> Vec<Player> {
             .filter(|&i| i != n && matches!(actions[i], Action::Attack(x) if x == n))
             .map(|i| {
                 let ptr = (&mut players[i]) as *mut Player;
-                unsafe {
-                    &mut *ptr
-                }
+                unsafe { &mut *ptr }
             })
             .collect::<Vec<_>>();
 
@@ -215,8 +216,12 @@ pub fn update(mut players: Vec<Player>, actions: &[Action]) -> Vec<Player> {
     for (n, player) in players.iter_mut().enumerate() {
         match actions[n] {
             Action::Wall if player.walls < MAX_WALLS && !player.sieged => player.walls += 1,
-            Action::Barracks if player.barracks < MAX_BARRACKS && !player.sieged => player.barracks += 1,
-            Action::Obelisk if player.obelisks < MAX_OBELISKS && !player.sieged => player.obelisks += 1,
+            Action::Barracks if player.barracks < MAX_BARRACKS && !player.sieged => {
+                player.barracks += 1
+            }
+            Action::Obelisk if player.obelisks < MAX_OBELISKS && !player.sieged => {
+                player.obelisks += 1
+            }
             Action::Recruit => player.soldiers += player.barracks as u32,
             Action::Skip => player.soldiers += 1,
             Action::None => debug_assert!(!player.can_play()),
@@ -250,25 +255,28 @@ pub mod test {
             Action::Wall,
             Action::Barracks,
             Action::Skip,
-            Action::Skip
+            Action::Skip,
         ];
 
         state = update(state, &decisions_0);
 
-        assert_eq!(state, vec![
-            Player::with_values(2, 1, 1, 1, 0),
-            Player::with_values(1, 1, 2, 1, 0),
-            Player::with_values(1, 1, 2, 1, 0),
-            Player::with_values(1, 1, 1, 2, 0),
-            Player::with_values(1, 1, 2, 1, 0),
-            Player::with_values(1, 2, 1, 1, 0),
-            Player::with_values(1, 1, 2, 1, 0),
-            Player::with_values(2, 1, 1, 1, 0),
-            Player::with_values(2, 1, 1, 1, 0),
-            Player::with_values(1, 1, 2, 1, 0),
-            Player::with_values(1, 2, 1, 1, 0),
-            Player::with_values(1, 2, 1, 1, 0),
-        ]);
+        assert_eq!(
+            state,
+            vec![
+                Player::with_values(2, 1, 1, 1, 0),
+                Player::with_values(1, 1, 2, 1, 0),
+                Player::with_values(1, 1, 2, 1, 0),
+                Player::with_values(1, 1, 1, 2, 0),
+                Player::with_values(1, 1, 2, 1, 0),
+                Player::with_values(1, 2, 1, 1, 0),
+                Player::with_values(1, 1, 2, 1, 0),
+                Player::with_values(2, 1, 1, 1, 0),
+                Player::with_values(2, 1, 1, 1, 0),
+                Player::with_values(1, 1, 2, 1, 0),
+                Player::with_values(1, 2, 1, 1, 0),
+                Player::with_values(1, 2, 1, 1, 0),
+            ]
+        );
 
         let decisions_1 = [
             Action::Barracks,
@@ -282,25 +290,28 @@ pub mod test {
             Action::Barracks,
             Action::Wall,
             Action::Barracks,
-            Action::Barracks
+            Action::Barracks,
         ];
 
         state = update(state, &decisions_1);
 
-        assert_eq!(state, vec![
-            Player::with_values(2, 1, 2, 1, 0),
-            Player::with_values(2, 1, 2, 1, 0),
-            Player::with_values(2, 1, 2, 1, 0),
-            Player::with_values(2, 1, 1, 2, 0),
-            Player::with_values(2, 1, 2, 1, 0),
-            Player::with_values(1, 3, 1, 1, 0),
-            Player::with_values(2, 1, 2, 1, 0),
-            Player::with_values(2, 1, 2, 1, 0),
-            Player::with_values(2, 1, 2, 1, 0),
-            Player::with_values(2, 1, 2, 1, 0),
-            Player::with_values(1, 2, 2, 1, 0),
-            Player::with_values(1, 2, 2, 1, 0),
-        ]);
+        assert_eq!(
+            state,
+            vec![
+                Player::with_values(2, 1, 2, 1, 0),
+                Player::with_values(2, 1, 2, 1, 0),
+                Player::with_values(2, 1, 2, 1, 0),
+                Player::with_values(2, 1, 1, 2, 0),
+                Player::with_values(2, 1, 2, 1, 0),
+                Player::with_values(1, 3, 1, 1, 0),
+                Player::with_values(2, 1, 2, 1, 0),
+                Player::with_values(2, 1, 2, 1, 0),
+                Player::with_values(2, 1, 2, 1, 0),
+                Player::with_values(2, 1, 2, 1, 0),
+                Player::with_values(1, 2, 2, 1, 0),
+                Player::with_values(1, 2, 2, 1, 0),
+            ]
+        );
     }
 
     #[test]
