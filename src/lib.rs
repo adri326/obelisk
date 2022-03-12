@@ -1,13 +1,16 @@
 #![feature(trait_alias)]
 
+use serde::{Deserialize, Serialize};
+
 pub mod genetic_basic;
 pub mod monte_carlo;
+pub mod generate_training;
 
 pub const MAX_WALLS: u8 = 10;
 pub const MAX_BARRACKS: u8 = 10;
 pub const MAX_OBELISKS: u8 = 10;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Player {
     pub soldiers: u32,
     pub walls: u8,
@@ -159,7 +162,7 @@ impl PartialEq for Player {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Action {
     Wall,
     Recruit,

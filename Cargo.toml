@@ -10,6 +10,7 @@ criterion = "0.3"
 
 [dependencies]
 lazy_static = "1.4.0"
+num_cpus = "1.13.1"
 rand = "0.8.5"
 scoped_threadpool = "0.1.9"
 smallvec = "1.8.0"
@@ -25,5 +26,10 @@ debug = true
 
 [[bin]]
 name = "evaluate"
+test = false
+bench = false
+
+[[bin]]
+name = "generate_training"
 test = false
 bench = false

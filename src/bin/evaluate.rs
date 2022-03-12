@@ -2,8 +2,7 @@ use obelisk::*;
 use obelisk::monte_carlo::*;
 use obelisk::genetic_basic::*;
 use scoped_threadpool::Pool;
-use std::fs::File;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 fn main() -> serde_json::Result<()> {
     let agents = std::fs::read_to_string("target/out.json").expect("Couldn't open target/out.json");

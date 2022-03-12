@@ -24,6 +24,11 @@ where
     let mut best = (f64::INFINITY, Action::None);
     let mut actions = Vec::new();
     for action in players[index].possible_actions(iter) {
+        if action == Action::None {
+            actions.push((Action::None, f64::INFINITY, 0.0));
+            continue;
+        }
+
         let (loss, variance) = monte_carlo(players, index, action, samples, max_rounds, round_offset, ai, compute_loss);
 
         actions.push((action, loss, variance));
