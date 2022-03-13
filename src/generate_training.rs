@@ -89,7 +89,10 @@ where
                 let begin = settings.n_data * thread / settings.threads;
                 let end = settings.n_data * (thread + 1) / settings.threads;
                 let mut tmp_res = Vec::with_capacity(end - begin);
-                for _data_index in begin..end {
+                for data_index in begin..end {
+                    if data_index % 10 == 0 {
+                        println!("Thread {}: {}/{}", thread, data_index - begin, end - begin);
+                    }
                     tmp_res.push(generate_training_data_sub(
                         &settings,
                         ai,
@@ -134,7 +137,9 @@ where
     for round in 0..initial_rounds {
         let actions = (0..players.len())
             .map(|n| {
-                if rng.gen_bool(settings.initial_noise) {
+                if !players[n].can_play() {
+                    Action::None
+                } else if rng.gen_bool(settings.initial_noise) {
                     players[n]
                         .possible_actions(
                             players.iter().enumerate().filter(|(x, _p)| *x != n),

@@ -9,11 +9,11 @@ fn main() -> std::io::Result<()> {
     let agents: Vec<SimpleAgent> = serde_json::from_str(&agents).expect("Couldn't parse target/out.json");
 
     let settings = TrainingSettings {
-        n_data: 100,
+        n_data: 1600,
         samples: 2000,
         n_players: 8..12,
         initial_actions: 0..30,
-        threads: 2,
+        threads: 4,
         ..Default::default()
     };
 
@@ -30,9 +30,10 @@ fn main() -> std::io::Result<()> {
         SystemTime::now().duration_since(UNIX_EPOCH).expect("Uh oh").as_millis()
     ))?;
 
-    write!(
-        file,
-        "{}",
-        serde_json::to_string(&training_data).expect("Couldn't serialize training_data!")
-    )
+    let serialized = serde_json::to_string(&training_data).expect("Couldn't serialize training_data!");
+
+    write!(file, "{}", serialized)?;
+
+    let mut file = File::create("target/train-last.json")?;
+    write!(file, "{}", serialized)
 }
