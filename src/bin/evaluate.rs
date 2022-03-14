@@ -20,17 +20,18 @@ fn main() -> serde_json::Result<()> {
     let compute_loss = obelisk::genetic_basic::compute_loss;
 
     let players = vec![
-        Player::with_values(2, 1, 3, 1, 0),
-        Player::with_values(3, 1, 2, 1, 0),
-        Player::with_values(3, 1, 2, 1, 0),
-        Player::with_values(3, 1, 1, 2, 0),
-        Player::with_values(2, 1, 3, 1, 0),
-        Player::with_values(2, 1, 2, 2, 0),
-        Player::with_values(2, 3, 2, 1, 0),
-        Player::with_values(2, 1, 2, 2, 0),
-        Player::with_values(3, 1, 2, 1, 0),
-        Player::with_values(1, 2, 3, 1, 0),
-        Player::with_values(2, 2, 2, 1, 0),
+        Player::with_values(2, 1, 3, 2, 0),
+        Player::with_values(3, 1, 2, 2, 0),
+        Player::with_values(3, 3, 2, 1, 0),
+        Player::with_values(4, 1, 1, 2, 0),
+        Player::with_values(2, 4, 3, 1, 0),
+        Player::with_values(3, 1, 2, 2, 0),
+        Player::with_values(2, 5, 2, 1, 0),
+        Player::with_values(2, 1, 3, 2, 0),
+        Player::with_values(3, 3, 2, 1, 0),
+        Player::with_values(1, 5, 3, 1, 0),
+        Player::with_values(2, 2, 3, 1, 0),
+        Player::with_values(1, 0, 1, 1, 0).make_target(),
     ];
 
     let names = vec![
@@ -44,11 +45,12 @@ fn main() -> serde_json::Result<()> {
         "NaeNaeVille",
         "Kujou Clan",
         "NN Empire",
-        "I.A.S."
+        "I.A.S.",
+        "SC CHONK"
     ];
 
     let mut pool = Pool::new(players.len() as u32);
-    const SAMPLES: usize = 1000000;
+    const SAMPLES: usize = 100000;
     let res = std::sync::Mutex::new(Vec::new());
 
     let start = Instant::now();
@@ -81,7 +83,7 @@ fn main() -> serde_json::Result<()> {
     for (index, best_action, mut actions) in res {
         println!("== Player {}: {} ==", index, names[index]);
         actions.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-        for (action, loss, variance) in actions.into_iter().take(4) {
+        for (action, loss, variance) in actions.into_iter().take(6) {
             match action {
                 Action::Attack(n) => print!("Attack({})", names[n]),
                 x => print!("{:?}", x),

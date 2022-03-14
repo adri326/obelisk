@@ -77,21 +77,32 @@ where
     Ai: for<'c> AiFn<'c, rand::rngs::ThreadRng> + Copy + Send,
     Loss: for<'c> Fn(&'c [Player], usize) -> f64 + Copy + Send,
 {
+    use std::time::Instant;
     let res = Mutex::new(Vec::new());
     let mut pool = Pool::new(settings.threads as u32);
+    let total = Mutex::new(0usize);
 
     pool.scoped(|scope| {
         for thread in 0..settings.threads {
             let res = &res;
+            let total = &total;
             let settings = settings.clone();
             scope.execute(move || {
+                let start = Instant::now();
                 let mut rng = rand::thread_rng();
                 let begin = settings.n_data * thread / settings.threads;
                 let end = settings.n_data * (thread + 1) / settings.threads;
                 let mut tmp_res = Vec::with_capacity(end - begin);
                 for data_index in begin..end {
                     if data_index % 10 == 0 {
-                        println!("Thread {}: {}/{}", thread, data_index - begin, end - begin);
+                        *total.lock().unwrap() += 10;
+                        if thread == 0 {
+                            let total = *total.lock().unwrap();
+                            let ratio = total as f64 / settings.n_data as f64;
+                            let duration = Instant::now() - start;
+                            let estimated = duration * (1.0 / ratio) as u32 - duration;
+                            println!("{}/{} ({:.2}%, eta {:.2?})", total, settings.n_data, ratio * 100.0, estimated);
+                        }
                     }
                     tmp_res.push(generate_training_data_sub(
                         &settings,

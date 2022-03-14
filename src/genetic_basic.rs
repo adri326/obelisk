@@ -133,7 +133,7 @@ impl SimpleAgent {
                 .enumerate()
                 .filter(|&(n, p)| {
                     let strength = p.walls as u32 * if p.defense > 0 { 2 } else { 1 } + p.soldiers;
-                    return n != index && strength < players[index].soldiers && p.can_play();
+                    return n != index && strength < players[index].soldiers && p.can_be_attacked();
                 })
                 .map(|(n, _p)| n)
                 .collect::<SmallVec<_>>();

@@ -22,6 +22,8 @@ pub struct Player {
     pub obelisks: u8,
     pub victories: usize,
     pub defeats: usize,
+
+    pub is_target: bool,
 }
 
 impl Player {
@@ -36,6 +38,7 @@ impl Player {
             sieged: false,
             victories: 0,
             defeats: 0,
+            is_target: false,
         }
     }
 
@@ -50,7 +53,13 @@ impl Player {
             sieged: false,
             victories: 0,
             defeats: 0,
+            is_target: false,
         }
+    }
+
+    pub fn make_target(mut self) -> Self {
+        self.is_target = true;
+        self
     }
 
     #[inline(always)]
@@ -65,6 +74,12 @@ impl Player {
 
     #[inline(always)]
     pub fn can_play(&self) -> bool {
+        return !self.lost() && !self.won() && !self.is_target;
+    }
+
+    #[inline(always)]
+    pub fn can_be_attacked(&self) -> bool {
+        // Implicitely returns false if the number of obelisks is null
         return !self.lost() && !self.won();
     }
 
@@ -88,14 +103,16 @@ impl Player {
             return;
         }
 
-        let walls: u32 = self.walls as u32 * if self.defense > 0 { 2 } else { 1 };
-        if attacker.soldiers <= walls {
-            self.walls = ((walls - attacker.soldiers) / if self.defense > 0 { 2 } else { 1 }) as u8;
-            attacker.soldiers = 0;
-            return;
-        } else {
-            attacker.soldiers -= walls;
-            self.walls = 0;
+        if !self.is_target {
+            let walls: u32 = self.walls as u32 * if self.defense > 0 { 2 } else { 1 };
+            if attacker.soldiers <= walls {
+                self.walls = ((walls - attacker.soldiers) / if self.defense > 0 { 2 } else { 1 }) as u8;
+                attacker.soldiers = 0;
+                return;
+            } else {
+                attacker.soldiers -= walls;
+                self.walls = 0;
+            }
         }
 
         if self.soldiers > 0 && !self.busy {
@@ -110,6 +127,13 @@ impl Player {
             attacker.victories += 1;
             self.obelisks -= 1;
             attacker.obelisks += 1;
+
+            if self.is_target {
+                attacker.walls += self.walls;
+                self.walls = 0;
+                attacker.barracks += self.barracks;
+                self.barracks = 0;
+            }
         }
     }
 
@@ -142,7 +166,7 @@ impl Player {
 
         if self.soldiers > 0 {
             for (n, player) in players {
-                if player.can_play() {
+                if player.can_be_attacked() {
                     res.push(Action::Attack(n));
                 }
             }
@@ -408,5 +432,23 @@ pub mod test {
             assert_eq!(attacker_2, Player::with_values(2, 0, 2, 1, 0));
             assert_eq!(attacker_3, Player::with_values(1, 0, 3, 1, 0));
         }
+    }
+
+    #[test]
+    pub fn attack_target() {
+        let mut attacker = Player::with_values(1, 4, 1, 1, 0);
+        let mut attacked = Player::with_values(1, 0, 1, 1, 0).make_target();
+
+        assert!(attacker.can_play());
+        assert!(attacker.can_be_attacked());
+        assert!(!attacked.can_play());
+        assert!(attacked.can_be_attacked());
+
+        assert!(attacker.possible_actions([&attacked].into_iter().enumerate()).iter().any(|a| *a == Action::Attack(0)));
+
+        attacked.attacked(&mut vec![&mut attacker]);
+
+        assert_eq!(attacker, Player::with_values(2, 4, 2, 2, 0));
+        assert_eq!(attacked, Player::with_values(0, 0, 0, 0, 0).make_target());
     }
 }

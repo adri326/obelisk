@@ -77,7 +77,7 @@ def read_training(path):
 
 print(actions_map)
 
-MAX_PLAYERS = 12
+MAX_PLAYERS = 16
 ACTION_ATTACK = parse_action("Attack")
 MAX_ACTIONS = ACTION_ATTACK + MAX_PLAYERS - 1
 N_ACTIONS = 8
@@ -85,7 +85,8 @@ MAX_WALLS = 10
 MAX_BARRACKS = 10
 MAX_OBELISKS = 10
 SOLDIERS_SCALE = 5
-PERMUTATIONS = 6
+PERMUTATIONS = 1
+SKIP_RATE = 0.5
 # previous moves + players
 INPUT_SIZE = MAX_ACTIONS * N_ACTIONS + 6 * MAX_PLAYERS
 
@@ -111,6 +112,8 @@ def refine_training(training):
     res_input = []
     for [previous_actions, players, best_actions] in training:
         for n, playable in filter(lambda x: best_actions[x[0]] != 0, enumerate(players)):
+            if random.random() < SKIP_RATE:
+                continue
             prev = []
             for o in range(N_ACTIONS):
                 index = len(previous_actions[n]) - 1 - o
@@ -127,6 +130,11 @@ def refine_training(training):
             players = [playable]
             for o, other in filter(lambda x: x[0] != n, enumerate(players)):
                 players.append(other)
+
+            if best_actions[n] >= ACTION_ATTACK + n:
+                best_action = best_actions[n] - 1
+            else:
+                best_action = best_actions[n]
 
             for perm_n in range(PERMUTATIONS):
                 perm = [x for x in range(MAX_PLAYERS - 1)]
@@ -157,10 +165,6 @@ def refine_training(training):
                     else:
                         transformed_players.append([0, 0, 0, 0, 0, 0])
 
-                if best_actions[n] >= ACTION_ATTACK + n:
-                    best_action = best_actions[n] - 1
-                else:
-                    best_action = best_actions[n]
                 # best_action = categorize(best_action, MAX_ACTIONS)
 
                 transformed_prev = []
@@ -174,6 +178,7 @@ def refine_training(training):
     return res_input,res_output
 
 # Turn the training data into a list of tensors for the AI
+random.shuffle(training)
 refined_x,refined_y = refine_training(training)
 train_x = numpy.array(refined_x)
 train_y = numpy.array(refined_y)
@@ -186,12 +191,16 @@ except IOError:
     print("Creating a new model!")
     model = tf.keras.Sequential([
         layers.Input(shape=(INPUT_SIZE,)),
-        layers.Dense(units = 96, activation="sigmoid"),
-        layers.Dropout(0.2),
+        # layers.Dense(units = 180, activation="relu"),
+        # layers.Dropout(0.2),
         layers.Dense(units = 64, activation="relu"),
-        layers.Dropout(0.2),
+        layers.Dropout(0.25),
+        layers.Dense(units = 64, activation="relu"),
+        layers.Dropout(0.25),
         layers.Dense(units = 32, activation="relu"),
-        layers.Dropout(0.2),
+        layers.Dropout(0.25),
+        layers.Dense(units = 24, activation="relu"),
+        layers.Dropout(0.25),
         layers.Dense(units = MAX_ACTIONS, activation="softmax")
     ])
 
@@ -206,7 +215,7 @@ history = model.fit(
     x=train_x,
     y=train_y,
     validation_split=0.1,
-    epochs=100,
+    epochs=40,
     verbose=1
 )
 
