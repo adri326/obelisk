@@ -1,10 +1,12 @@
 #![feature(trait_alias)]
+#![feature(type_alias_impl_trait)]
 
 use serde::{Deserialize, Serialize};
 
 pub mod genetic_basic;
 pub mod monte_carlo;
 pub mod generate_training;
+pub mod model;
 
 pub const MAX_WALLS: u8 = 10;
 pub const MAX_BARRACKS: u8 = 10;

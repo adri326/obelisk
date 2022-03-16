@@ -65,7 +65,7 @@ def read_training(path):
                 player["barracks"],
                 player["obelisks"],
                 int(player["defense"] > 0),
-                int(player["defense"] == 2)
+                int(player["defense"] >= 2)
             ])
 
 
@@ -89,10 +89,6 @@ PERMUTATIONS = 1
 SKIP_RATE = 0.5
 # previous moves + players
 INPUT_SIZE = MAX_ACTIONS * N_ACTIONS + 6 * MAX_PLAYERS
-
-# Read the training data as a bunch of numbers
-training = read_training("./target/train-last.json")
-print(len(training), "training games")
 
 def categorize(value, max):
     res = []
@@ -177,48 +173,53 @@ def refine_training(training):
                 assert len(row) == INPUT_SIZE
     return res_input,res_output
 
-# Turn the training data into a list of tensors for the AI
-random.shuffle(training)
-refined_x,refined_y = refine_training(training)
-train_x = numpy.array(refined_x)
-train_y = numpy.array(refined_y)
+if __name__ == "__main__":
+    # Read the training data as a bunch of numbers
+    training = read_training("./target/train-last.json")
+    print(len(training), "training games")
 
-print(train_x.shape, train_y.shape)
+    # Turn the training data into a list of tensors for the AI
+    random.shuffle(training)
+    refined_x,refined_y = refine_training(training)
+    train_x = numpy.array(refined_x)
+    train_y = numpy.array(refined_y)
 
-try:
-    model = tf.keras.models.load_model("target/model.h5")
-except IOError:
-    print("Creating a new model!")
-    model = tf.keras.Sequential([
-        layers.Input(shape=(INPUT_SIZE,)),
-        # layers.Dense(units = 180, activation="relu"),
-        # layers.Dropout(0.2),
-        layers.Dense(units = 64, activation="relu"),
-        layers.Dropout(0.25),
-        layers.Dense(units = 64, activation="relu"),
-        layers.Dropout(0.25),
-        layers.Dense(units = 32, activation="relu"),
-        layers.Dropout(0.25),
-        layers.Dense(units = 24, activation="relu"),
-        layers.Dropout(0.25),
-        layers.Dense(units = MAX_ACTIONS, activation="softmax")
-    ])
+    print(train_x.shape, train_y.shape)
 
-    # loss: categorical cross-entropy
-    model.compile(
-        optimizer="adam",
-        loss="sparse_categorical_crossentropy",
-        metrics=["accuracy"]
+    try:
+        model = tf.keras.models.load_model("target/model.h5")
+    except IOError:
+        print("Creating a new model!")
+        model = tf.keras.Sequential([
+            layers.Input(shape=(INPUT_SIZE,)),
+            # layers.Dense(units = 180, activation="relu"),
+            # layers.Dropout(0.2),
+            layers.Dense(units = 64, activation="relu"),
+            layers.Dropout(0.25),
+            layers.Dense(units = 64, activation="relu"),
+            layers.Dropout(0.25),
+            layers.Dense(units = 32, activation="relu"),
+            layers.Dropout(0.25),
+            layers.Dense(units = 24, activation="relu"),
+            layers.Dropout(0.25),
+            layers.Dense(units = MAX_ACTIONS, activation="softmax")
+        ])
+
+        # loss: categorical cross-entropy
+        model.compile(
+            optimizer="adam",
+            loss="sparse_categorical_crossentropy",
+            metrics=["accuracy"]
+        )
+
+    history = model.fit(
+        x=train_x,
+        y=train_y,
+        validation_split=0.1,
+        epochs=40,
+        verbose=1
     )
 
-history = model.fit(
-    x=train_x,
-    y=train_y,
-    validation_split=0.1,
-    epochs=40,
-    verbose=1
-)
-
-current_time = time.strftime("%Y_%m_%d-%H_%M_%S")
-model.save(f'target/model-{current_time}.h5')
-model.save("target/model.h5")
+    current_time = time.strftime("%Y_%m_%d-%H_%M_%S")
+    model.save(f'target/model-{current_time}.h5')
+    model.save("target/model.h5")
