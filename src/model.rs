@@ -19,9 +19,9 @@ pub const MAX_BARRACKS: ModelPrec = 10.0;
 pub const MAX_OBELISKS: ModelPrec = 10.0;
 pub const SOLDIERS_SCALE: ModelPrec = 5.0;
 
-pub fn convert_previous_actions(
+fn convert_previous_actions(
     actions: &[Action],
-    player_index: usize
+    inverse_permutation: &[usize],
 ) -> [[ModelPrec; MAX_ACTIONS]; N_ACTIONS] {
     let mut res = [[0.0; MAX_ACTIONS]; N_ACTIONS];
 
@@ -33,13 +33,13 @@ pub fn convert_previous_actions(
         .take(N_ACTIONS)
         .enumerate()
     {
-        res[n] = categorize_action(action, player_index)
+        res[n] = categorize_action(action, inverse_permutation)
     }
 
     res
 }
 
-pub fn convert_player(player: &Player) -> [ModelPrec; 6] {
+fn convert_player(player: &Player) -> [ModelPrec; 6] {
     [
         player.walls as ModelPrec / MAX_WALLS,
         1.0 - (-(player.soldiers as ModelPrec / SOLDIERS_SCALE)).exp(),
@@ -50,7 +50,7 @@ pub fn convert_player(player: &Player) -> [ModelPrec; 6] {
     ]
 }
 
-pub fn get_action_index(action: Action, player_index: usize) -> usize {
+fn get_action_index(action: Action, inverse_permutation: &[usize]) -> usize {
     match action {
         Action::None => 0,
         Action::Wall => 1,
@@ -60,20 +60,21 @@ pub fn get_action_index(action: Action, player_index: usize) -> usize {
         Action::Defend => 5,
         Action::Skip => 6,
         Action::Attack(n) => {
-            if n < player_index {
-                7 + n
-            } else {
-                7 + n - 1
-            }
+            7 + inverse_permutation[n]
+            // if n < player_index {
+            //     7 + n
+            // } else {
+            //     7 + n - 1
+            // }
         }
     }
 }
 
-pub fn categorize_action(action: Action, player_index: usize) -> [ModelPrec; MAX_ACTIONS] {
+fn categorize_action(action: Action, inverse_permutation: &[usize]) -> [ModelPrec; MAX_ACTIONS] {
     let mut res = [0.0; MAX_ACTIONS];
 
     // TODO: generate this code from actions.csv?
-    let index = get_action_index(action, player_index);
+    let index = get_action_index(action, inverse_permutation);
 
     debug_assert!(index < MAX_ACTIONS);
     res[index] = 1.0;
@@ -81,35 +82,83 @@ pub fn categorize_action(action: Action, player_index: usize) -> [ModelPrec; MAX
     return res;
 }
 
-pub fn convert_state(
+#[inline]
+fn compute_permutation(players: &[Player], player_index: usize) -> (Vec<usize>, Vec<usize>) {
+    let mut permutation = Vec::with_capacity(players.len());
+    permutation.push(player_index);
+    for n in 0..players.len() {
+        if n == player_index {
+            continue
+        } else {
+            permutation.push(n);
+        }
+    }
+
+    permutation[1..].sort_by(|&a, &b| {
+        let a = players[a].walls as u32 * (if players[a].defense > 0 {2} else {1}) as u32 + players[a].soldiers;
+        let b = players[b].walls as u32 * (if players[b].defense > 0 {2} else {1}) as u32 + players[b].soldiers;
+
+        b.partial_cmp(&a).unwrap()
+    });
+
+    let mut inverse_permutation = vec![0; players.len()];
+    for (n, p) in permutation.iter().copied().enumerate() {
+        inverse_permutation[p] = n;
+    }
+
+    (permutation, inverse_permutation)
+}
+
+pub fn run_model(
+    model: &Model,
     previous_actions: &[Action],
     players: &[Player],
-    player_index: usize
-) -> [ModelPrec; INPUT_SIZE] {
-    let previous_actions = convert_previous_actions(previous_actions, player_index);
-    let mut res = [0.0; INPUT_SIZE];
+    player_index: usize,
+    actions: &[Action],
+) -> TractResult<Vec<(Action, ModelPrec)>> {
+    let (permutation, inverse_permutation) = compute_permutation(players, player_index);
+
+    let previous_actions = convert_previous_actions(previous_actions, &inverse_permutation);
+    let mut input = [0.0; INPUT_SIZE];
 
     for (n, prev) in previous_actions.into_iter().enumerate() {
         let index = n * MAX_ACTIONS;
-        let slice = &mut res[index..(index + MAX_ACTIONS)];
+        let slice = &mut input[index..(index + MAX_ACTIONS)];
         slice.copy_from_slice(&prev);
     }
 
     for (n, player) in players.iter().enumerate() {
-        let index = if n < player_index {
-            (n + 1) * 6 + N_ACTIONS * MAX_ACTIONS
-        } else if n == player_index {
-            N_ACTIONS * MAX_ACTIONS
-        } else {
-            n * 6 + N_ACTIONS * MAX_ACTIONS
-        };
+        let index = permutation[n] * 6 + N_ACTIONS * MAX_ACTIONS;
 
-        let slice = &mut res[index..(index+6)];
+        let slice = &mut input[index..(index+6)];
         let converted = convert_player(player);
         slice.copy_from_slice(&converted);
     }
 
-    res
+    let tensor = Tensor::from_shape(&[1, INPUT_SIZE], &input)?;
+
+    let prediction = model.run(tvec!(tensor))?;
+
+    let prediction: Vec<ModelPrec> = prediction[0].to_array_view::<ModelPrec>()?.iter().cloned().collect::<Vec<_>>();
+
+    println!("{:?}", prediction);
+
+    let mut res = Vec::with_capacity(actions.len());
+    let mut sum = 0.0;
+
+    for action in actions.iter().copied() {
+        let index = get_action_index(action, &inverse_permutation);
+        res.push((action, prediction[index]));
+        sum += prediction[index];
+    }
+
+    for x in res.iter_mut() {
+        x.1 /= sum;
+    }
+
+    res.sort_unstable_by(|(_, a), (_, b)| b.partial_cmp(&a).unwrap());
+
+    Ok(res)
 }
 
 pub type ModelFact = impl Fact + Hash + Clone + 'static;
@@ -131,39 +180,4 @@ pub fn load_model(path: impl AsRef<Path>) -> TractResult<Model> {
         ))?
         .into_optimized()?
         .into_runnable()
-}
-
-pub fn run_model(model: &Model, state: &[ModelPrec; INPUT_SIZE]) -> TractResult<Vec<ModelPrec>> {
-    let tensor = Tensor::from_shape(&[1, INPUT_SIZE], state)?;
-
-    let res = model.run(tvec!(tensor))?;
-
-    let res: Vec<ModelPrec> = res[0].to_array_view::<ModelPrec>()?.iter().cloned().collect::<Vec<_>>();
-
-    Ok(res)
-}
-
-pub fn transform_prediction(
-    prediction: &Vec<ModelPrec>,
-    actions: Vec<Action>,
-    player_index: usize
-) -> Vec<(Action, ModelPrec)> {
-    let mut res = Vec::with_capacity(actions.len());
-    let mut sum = 0.0;
-
-    for action in actions {
-        let index = get_action_index(action, player_index);
-
-        let pred = prediction[index];
-        sum += pred;
-        res.push((action, pred));
-    }
-
-    for x in res.iter_mut() {
-        x.1 /= sum;
-    }
-
-    res.sort_unstable_by(|(_, a), (_, b)| b.partial_cmp(&a).unwrap());
-
-    res
 }

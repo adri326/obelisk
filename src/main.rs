@@ -36,18 +36,17 @@ fn main() {
     //     Action::Recruit,
     // ];
 
-    let state = convert_state(&previous_actions, &players, PLAYER);
-
     println!("{:?}", players[PLAYER]);
 
-    let prediction = run_model(&model, &state).unwrap();
-    let prediction = transform_prediction(
-        &prediction,
-        players[PLAYER].possible_actions(
+    let prediction = run_model(
+        &model,
+        &previous_actions,
+        &players,
+        PLAYER,
+        &players[PLAYER].possible_actions(
             players.iter().enumerate().filter(|(n, _p)| *n != PLAYER),
-        ),
-        PLAYER
-    );
+        )
+    ).unwrap();
 
-    println!("{:?}\n-> {:#?}", state, prediction);
+    println!("-> {:#?}", prediction);
 }

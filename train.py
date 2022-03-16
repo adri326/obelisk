@@ -106,8 +106,8 @@ def flatten(l):
 def refine_training(training):
     res_output = []
     res_input = []
-    for [previous_actions, players, best_actions] in training:
-        for n, playable in filter(lambda x: best_actions[x[0]] != 0, enumerate(players)):
+    for [previous_actions, raw_players, best_actions] in training:
+        for n, playable in filter(lambda x: best_actions[x[0]] != 0, enumerate(raw_players)):
             if random.random() < SKIP_RATE:
                 continue
             prev = []
@@ -124,7 +124,7 @@ def refine_training(training):
                         prev.append(action)
 
             players = [playable]
-            for o, other in filter(lambda x: x[0] != n, enumerate(players)):
+            for o, other in filter(lambda x: x[0] != n, enumerate(raw_players)):
                 players.append(other)
 
             if best_actions[n] >= ACTION_ATTACK + n:
@@ -132,45 +132,56 @@ def refine_training(training):
             else:
                 best_action = best_actions[n]
 
-            for perm_n in range(PERMUTATIONS):
-                perm = [x for x in range(MAX_PLAYERS - 1)]
-                random.shuffle(perm)
-                action_map = bidict()
-                for a in range(ACTION_ATTACK):
-                    action_map.put(a, a)
-                for p in range(MAX_PLAYERS - 1):
-                    action_map.put(ACTION_ATTACK + p, ACTION_ATTACK + perm[p])
+            # for perm_n in range(PERMUTATIONS):
+            perm = [x for x in range(MAX_PLAYERS - 1)]
+            # random.shuffle(perm)
 
-                transformed_players = []
-                for p in range(MAX_PLAYERS):
-                    if p == 0:
-                        index = 0
-                    else:
-                        index = perm[p - 1] + 1
+            # Let's order them by strength instead
+            def sort_strength(index):
+                if index + 1 < len(players):
+                    player = players[index + 1]
+                    return -(player[0] * (2 if player[4] > 0 else 1) + player[1])
+                else:
+                    return 1000
 
-                    if index < len(players):
-                        player = players[index]
-                        transformed_players.append([
-                            player[0] / MAX_WALLS,
-                            1 - math.exp(-player[1] / SOLDIERS_SCALE),
-                            player[2] / MAX_BARRACKS,
-                            player[3] / MAX_OBELISKS,
-                            player[4],
-                            player[5]
-                        ])
-                    else:
-                        transformed_players.append([0, 0, 0, 0, 0, 0])
+            perm.sort(key = sort_strength)
 
-                # best_action = categorize(best_action, MAX_ACTIONS)
+            action_map = bidict()
+            for a in range(ACTION_ATTACK):
+                action_map.put(a, a)
+            for p in range(MAX_PLAYERS - 1):
+                action_map.put(ACTION_ATTACK + p, ACTION_ATTACK + perm[p])
 
-                transformed_prev = []
-                for action in prev:
-                    transformed_prev.append(categorize(action_map[action], MAX_ACTIONS))
+            transformed_players = []
+            for p in range(MAX_PLAYERS):
+                if p == 0:
+                    index = 0
+                else:
+                    index = perm[p - 1] + 1
 
-                row = flatten(transformed_prev) + flatten(transformed_players)
-                res_input.append(row)
-                res_output.append(action_map[best_action])
-                assert len(row) == INPUT_SIZE
+                if index < len(players):
+                    player = players[index]
+                    transformed_players.append([
+                        player[0] / MAX_WALLS,
+                        1 - math.exp(-player[1] / SOLDIERS_SCALE),
+                        player[2] / MAX_BARRACKS,
+                        player[3] / MAX_OBELISKS,
+                        player[4],
+                        player[5]
+                    ])
+                else:
+                    transformed_players.append([0, 0, 0, 0, 0, 0])
+
+            # best_action = categorize(best_action, MAX_ACTIONS)
+
+            transformed_prev = []
+            for action in prev:
+                transformed_prev.append(categorize(action_map[action], MAX_ACTIONS))
+
+            row = flatten(transformed_prev) + flatten(transformed_players)
+            res_input.append(row)
+            res_output.append(action_map[best_action])
+            assert len(row) == INPUT_SIZE
     return res_input,res_output
 
 if __name__ == "__main__":
