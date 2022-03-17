@@ -1,6 +1,8 @@
 use obelisk::*;
 use obelisk::monte_carlo::*;
 use obelisk::genetic_basic::*;
+use obelisk::model::*;
+use rand::Rng;
 use scoped_threadpool::Pool;
 use std::time::Instant;
 
@@ -11,27 +13,58 @@ fn main() -> serde_json::Result<()> {
     const SAMPLE_AGENTS: usize = 25000;
     assert!(SAMPLE_AGENTS < agents.len());
 
-    let ai = |p: &[Player], index, round, value, rng: &mut rand::rngs::ThreadRng| {
-        let agent = &agents[(value * SAMPLE_AGENTS as f64) as usize];
-        let action = agent.get_action(p, index, round, rng);
-        action
+    let model = load_model("target/model.onnx").unwrap();
+
+
+    let ai = |players: &[Player], index: usize, _round, previous_actions: &[Action], rng: &mut rand::rngs::ThreadRng| {
+        let possible_actions = players[index].possible_actions(
+            players.iter().enumerate().filter(|(x, _p)| *x != index),
+        );
+
+        let predictions = run_model(
+            &model,
+            previous_actions,
+            players,
+            index,
+            &possible_actions
+        ).unwrap();
+
+        let best_action = predictions[0].0;
+
+        let choice = rng.gen::<ModelPrec>();
+        let mut sum = 0.0;
+        for (action, prob) in predictions {
+            sum += prob;
+            if sum > choice {
+                return action
+            }
+        }
+
+        best_action
     };
+    let description = format!("weighted sample from the results of DNN gen 1");
+
+    // let ai = |p: &[Player], index, round, _previous_actions: &[Action], rng: &mut rand::rngs::ThreadRng| {
+    //     let agent = &agents[rng.gen_range(0..SAMPLE_AGENTS)];
+    //     let action = agent.get_action(p, index, round, rng);
+    //     action
+    // };
+    // let description = format!("pick random action among {}/{} agents.", SAMPLE_AGENTS, agents.len());
 
     let compute_loss = obelisk::genetic_basic::compute_loss;
 
     let players = vec![
-        Player::with_values(2, 1, 3, 2, 0),
+        Player::with_values(2, 1, 4, 2, 0),
+        Player::with_values(4, 1, 2, 2, 0),
+        Player::with_values(3, 3, 2, 2, 0),
+        Player::with_values(5, 1, 1, 2, 0),
+        Player::with_values(2, 7, 3, 1, 0),
+        Player::with_values(4, 1, 2, 2, 0),
+        // Player::with_values(2, 0, 2, 0, 0).make_target(),
+        Player::with_values(2, 4, 3, 2, 0),
         Player::with_values(3, 1, 2, 2, 0),
-        Player::with_values(3, 3, 2, 1, 0),
-        Player::with_values(4, 1, 1, 2, 0),
-        Player::with_values(2, 4, 3, 1, 0),
-        Player::with_values(3, 1, 2, 2, 0),
-        Player::with_values(2, 5, 2, 1, 0),
-        Player::with_values(2, 1, 3, 2, 0),
-        Player::with_values(3, 3, 2, 1, 0),
-        Player::with_values(1, 5, 3, 1, 0),
-        Player::with_values(2, 2, 3, 1, 0),
-        Player::with_values(1, 0, 1, 1, 0).make_target(),
+        Player::with_values(1, 5, 3, 2, 0),
+        Player::with_values(2, 2, 3, 2, 0),
     ];
 
     let names = vec![
@@ -41,28 +74,33 @@ fn main() -> serde_json::Result<()> {
         "New Kuiper",
         "Space Rocks®",
         "Trars 01",
-        "Golden Heights",
+        // "Golden Heights",
         "NaeNaeVille",
         "Kujou Clan",
         "NN Empire",
         "I.A.S.",
-        "SC CHONK"
     ];
 
     let mut pool = Pool::new(players.len() as u32);
-    const SAMPLES: usize = 100000;
+    const SAMPLES: usize = 2000;
     let res = std::sync::Mutex::new(Vec::new());
 
     let start = Instant::now();
     const TURN: usize = 3;
     let max_rounds = agents[0].genome.len() - TURN;
 
+    let constraints: Vec<(usize, Action)> = vec![
+        (4, Action::Attack(0)),
+        (9, Action::Attack(0))
+    ];
+
     pool.scoped(|scope| {
         for index in 0..players.len() {
             let players = &players;
             let res = &res;
+            let constraints = constraints.clone();
             scope.execute(move || {
-                let (best_action, actions) = mc_best_action(players, index, SAMPLES, max_rounds, TURN, ai, compute_loss);
+                let (best_action, actions) = mc_best_action(players, index, constraints, SAMPLES, max_rounds, TURN, ai, compute_loss);
 
                 res.lock().unwrap().push((index, best_action, actions));
             });
@@ -73,29 +111,40 @@ fn main() -> serde_json::Result<()> {
 
     res.sort_by_key(|x| x.0);
 
+    let format_action = |action| {
+        match action {
+            Action::Attack(n) => print!("Attack({})", names[n]),
+            x => print!("{:?}", x),
+        }
+    };
+
     println!("=== Monte Carlo Method ===");
     println!("Turn {}, players: {}", TURN + 1, players.iter().filter(|p| p.can_play()).count());
-    println!("{} samples, pick random action among {}/{} agents.", SAMPLES, SAMPLE_AGENTS, agents.len());
+    println!("{} samples, {}.", SAMPLES, description);
     println!("Format: 'Action: loss±variance', minimize loss.");
     println!("Time taken: {:.2?}", start.elapsed());
     println!("");
+    println!("== Constraints: ==");
+
+    for (index, action) in constraints {
+        print!("Player {} ({}): ", names[index], index);
+        format_action(action);
+        println!();
+    }
+    println!();
 
     for (index, best_action, mut actions) in res {
         println!("== Player {}: {} ==", index, names[index]);
         actions.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
         for (action, loss, variance) in actions.into_iter().take(6) {
-            match action {
-                Action::Attack(n) => print!("Attack({})", names[n]),
-                x => print!("{:?}", x),
-            };
+            format_action(action);
 
             println!(": {:.3}±{:.3}", loss, 1.96 * (variance / SAMPLES as f64).sqrt());
         }
 
-        match best_action {
-            Action::Attack(n) => println!("-> Attack({})", names[n]),
-            x => println!("-> {:?}", x),
-        };
+        print!("-> ");
+        format_action(best_action);
+        println!();
 
         println!();
     }

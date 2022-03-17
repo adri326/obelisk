@@ -109,6 +109,7 @@ fn compute_permutation(players: &[Player], player_index: usize) -> (Vec<usize>, 
     (permutation, inverse_permutation)
 }
 
+#[inline]
 pub fn run_model(
     model: &Model,
     previous_actions: &[Action],
@@ -141,7 +142,7 @@ pub fn run_model(
 
     let prediction: Vec<ModelPrec> = prediction[0].to_array_view::<ModelPrec>()?.iter().cloned().collect::<Vec<_>>();
 
-    println!("{:?}", prediction);
+    // println!("{:?}", prediction);
 
     let mut res = Vec::with_capacity(actions.len());
     let mut sum = 0.0;

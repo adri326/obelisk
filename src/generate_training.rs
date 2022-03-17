@@ -2,6 +2,7 @@
 use super::genetic_basic::*;
 use super::monte_carlo::*;
 use super::*;
+use float_duration::{FloatDuration, FromDuration};
 use rand::prelude::*;
 use scoped_threadpool::Pool;
 use std::sync::Mutex;
@@ -57,8 +58,8 @@ pub fn generate_training_data_simpleagent(
     agents: &[SimpleAgent],
     sample_agents: usize,
 ) -> Vec<TrainingData> {
-    let ai = |p: &[Player], index, round, value, rng: &mut rand::rngs::ThreadRng| {
-        let agent = &agents[(value * sample_agents as f64) as usize];
+    let ai = |p: &[Player], index, round, _previous_actions: &[Action], rng: &mut rand::rngs::ThreadRng| {
+        let agent = &agents[rng.gen_range(0..sample_agents)];
         let action = agent.get_action(p, index, round, rng);
         action
     };
@@ -99,9 +100,9 @@ where
                         if thread == 0 {
                             let total = *total.lock().unwrap();
                             let ratio = total as f64 / settings.n_data as f64;
-                            let duration = Instant::now() - start;
-                            let estimated = duration * (1.0 / ratio) as u32 - duration;
-                            println!("{}/{} ({:.2}%, eta {:.2?})", total, settings.n_data, ratio * 100.0, estimated);
+                            let duration = FloatDuration::from_duration(Instant::now() - start).unwrap_or(FloatDuration::zero());
+                            let estimated = duration / ratio - duration;
+                            println!("{}/{} ({:.2}%, eta {:.2} min)", total, settings.n_data, ratio * 100.0, estimated.as_minutes());
                         }
                     }
                     tmp_res.push(generate_training_data_sub(
@@ -143,7 +144,7 @@ where
 
     let mut players = vec![Player::new(); rng.gen_range(settings.n_players.clone())];
     let initial_rounds = rng.gen_range(settings.initial_actions.clone());
-    let mut previous_actions = Vec::with_capacity(initial_rounds);
+    let mut previous_actions: Vec<Vec<Action>> = Vec::with_capacity(initial_rounds);
 
     for round in 0..initial_rounds {
         let actions = (0..players.len())
@@ -159,7 +160,8 @@ where
                         .cloned()
                         .into()
                 } else {
-                    ai(&players, n, round, rng.gen(), rng)
+                    let previous_actions = previous_actions.iter().map(|v| v[n]).collect::<Vec<_>>();
+                    ai(&players, n, round, &previous_actions, rng)
                 }
             })
             .collect::<Vec<_>>();
@@ -177,6 +179,7 @@ where
         let (best, mut losses) = mc_best_action(
             &players,
             player_index,
+            vec![],
             settings.samples,
             settings.max_rounds - initial_rounds,
             initial_rounds,
