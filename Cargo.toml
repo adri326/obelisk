@@ -23,6 +23,10 @@ tract-onnx = "0.16"
 name = "update"
 harness = false
 
+[[bench]]
+name = "model"
+harness = false
+
 [profile.release]
 debug = true
 incremental = true

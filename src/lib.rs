@@ -108,12 +108,12 @@ impl Player {
         if !self.is_target {
             let walls: u32 = self.walls as u32 * if self.defense > 0 { 2 } else { 1 };
             if attacker.soldiers <= walls {
-                self.walls = ((walls - attacker.soldiers) / if self.defense > 0 { 2 } else { 1 }) as u8;
+                // self.walls = ((walls - attacker.soldiers) / if self.defense > 0 { 2 } else { 1 }) as u8;
                 attacker.soldiers = 0;
                 return;
             } else {
                 attacker.soldiers -= walls;
-                self.walls = 0;
+                // self.walls = 0;
             }
         }
 
@@ -355,7 +355,7 @@ pub mod test {
 
             attacked.attacked(&mut vec![&mut attacker]);
 
-            assert_eq!(attacked, Player::with_values(0, 2, 1, 1, 0));
+            assert_eq!(attacked, Player::with_values(1, 2, 1, 1, 0));
             assert_eq!(attacker, Player::with_values(1, 0, 1, 1, 0));
         }
 
@@ -366,7 +366,7 @@ pub mod test {
 
             attacked.attacked(&mut vec![&mut attacker]);
 
-            assert_eq!(attacked, Player::with_values(0, 0, 1, 0, 0));
+            assert_eq!(attacked, Player::with_values(1, 0, 1, 0, 0));
             assert_eq!(attacker, Player::with_values(1, 1, 1, 2, 0));
         }
 
@@ -377,7 +377,7 @@ pub mod test {
 
             attacked.attacked(&mut vec![&mut attacker]);
 
-            assert_eq!(attacked, Player::with_values(0, 0, 1, 1, 0));
+            assert_eq!(attacked, Player::with_values(1, 0, 1, 1, 0));
             assert_eq!(attacker, Player::with_values(1, 0, 1, 1, 0));
         }
 
@@ -389,7 +389,7 @@ pub mod test {
 
             attacked.attacked(&mut vec![&mut attacker_1, &mut attacker_2]);
 
-            assert_eq!(attacked, Player::with_values(0, 0, 1, 0, 0));
+            assert_eq!(attacked, Player::with_values(1, 0, 1, 0, 0));
             assert_eq!(attacker_1, Player::with_values(1, 0, 1, 1, 0));
             assert_eq!(attacker_2, Player::with_values(1, 1, 1, 2, 0));
         }
@@ -415,7 +415,7 @@ pub mod test {
 
             attacked.attacked(&mut vec![&mut attacker_1, &mut attacker_2]);
 
-            assert_eq!(attacked, Player::with_values(0, 0, 1, 1, 0));
+            assert_eq!(attacked, Player::with_values(1, 0, 1, 1, 0));
             assert_eq!(attacker_1, Player::with_values(1, 0, 1, 1, 0));
             assert_eq!(attacker_2, Player::with_values(1, 0, 1, 1, 0));
         }
@@ -429,7 +429,7 @@ pub mod test {
 
             attacked.attacked(&mut vec![&mut attacker_1, &mut attacker_2, &mut attacker_3]);
 
-            assert_eq!(attacked, Player::with_values(0, 0, 2, 2, 0));
+            assert_eq!(attacked, Player::with_values(2, 0, 2, 2, 0));
             assert_eq!(attacker_1, Player::with_values(3, 1, 3, 3, 0));
             assert_eq!(attacker_2, Player::with_values(2, 0, 2, 1, 0));
             assert_eq!(attacker_3, Player::with_values(1, 0, 3, 1, 0));
