@@ -2,6 +2,7 @@ use obelisk::*;
 use obelisk::monte_carlo::*;
 use obelisk::genetic_basic::*;
 use obelisk::model::*;
+#[allow(unused_imports)]
 use rand::Rng;
 use scoped_threadpool::Pool;
 use std::time::Instant;
@@ -15,33 +16,7 @@ fn main() -> serde_json::Result<()> {
 
     let model = load_model("target/model.onnx").unwrap();
 
-
-    let ai = |players: &[Player], index: usize, _round, previous_actions: &[Action], rng: &mut rand::rngs::ThreadRng| {
-        let possible_actions = players[index].possible_actions(
-            players.iter().enumerate().filter(|(x, _p)| *x != index),
-        );
-
-        let predictions = run_model(
-            &model,
-            previous_actions,
-            players,
-            index,
-            &possible_actions
-        ).unwrap();
-
-        let best_action = predictions[0].0;
-
-        let choice = rng.gen::<ModelPrec>();
-        let mut sum = 0.0;
-        for (action, prob) in predictions {
-            sum += prob;
-            if sum > choice {
-                return action
-            }
-        }
-
-        best_action
-    };
+    let ai = wrap_model(&model);
     let description = format!("weighted sample from the results of DNN gen 1");
 
     // let ai = |p: &[Player], index, round, _previous_actions: &[Action], rng: &mut rand::rngs::ThreadRng| {
@@ -82,16 +57,17 @@ fn main() -> serde_json::Result<()> {
     ];
 
     let mut pool = Pool::new(players.len() as u32);
-    const SAMPLES: usize = 2000;
+    let samples: usize = std::env::args().last().map(|s| s.parse::<usize>().ok()).flatten().unwrap_or(1000);
     let res = std::sync::Mutex::new(Vec::new());
 
     let start = Instant::now();
-    const TURN: usize = 3;
+    const TURN: usize = 4;
     let max_rounds = agents[0].genome.len() - TURN;
 
     let constraints: Vec<(usize, Action)> = vec![
-        (4, Action::Attack(0)),
-        (9, Action::Attack(0))
+        // (0, Action::Defend),
+        // (4, Action::Attack(7)),
+        // (8, Action::Attack(0))
     ];
 
     pool.scoped(|scope| {
@@ -100,7 +76,7 @@ fn main() -> serde_json::Result<()> {
             let res = &res;
             let constraints = constraints.clone();
             scope.execute(move || {
-                let (best_action, actions) = mc_best_action(players, index, constraints, SAMPLES, max_rounds, TURN, ai, compute_loss);
+                let (best_action, actions) = mc_best_action(players, index, constraints, samples, max_rounds, TURN, ai, compute_loss);
 
                 res.lock().unwrap().push((index, best_action, actions));
             });
@@ -120,13 +96,13 @@ fn main() -> serde_json::Result<()> {
 
     println!("=== Monte Carlo Method ===");
     println!("Turn {}, players: {}", TURN + 1, players.iter().filter(|p| p.can_play()).count());
-    println!("{} samples, {}.", SAMPLES, description);
+    println!("{} samples, {}.", samples, description);
     println!("Format: 'Action: loss±variance', minimize loss.");
     println!("Time taken: {:.2?}", start.elapsed());
     println!("");
     println!("== Constraints: ==");
 
-    for (index, action) in constraints {
+    for (index, action) in constraints.iter().copied() {
         print!("Player {} ({}): ", names[index], index);
         format_action(action);
         println!();
@@ -136,11 +112,25 @@ fn main() -> serde_json::Result<()> {
     for (index, best_action, mut actions) in res {
         println!("== Player {}: {} ==", index, names[index]);
         actions.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+        for (index2, action) in constraints.iter().copied() {
+            if index2 != index {
+                continue;
+            }
+
+            let (action, loss, variance) = actions.iter().find(|(a, _, _)| *a == action).unwrap();
+
+            print!("C::> ");
+            format_action(*action);
+            println!(": {:.3}±{:.3}", loss, 1.96 * (variance / samples as f64).sqrt());
+        }
+
         for (action, loss, variance) in actions.into_iter().take(6) {
             format_action(action);
 
-            println!(": {:.3}±{:.3}", loss, 1.96 * (variance / SAMPLES as f64).sqrt());
+            println!(": {:.3}±{:.3}", loss, 1.96 * (variance / samples as f64).sqrt());
         }
+
 
         print!("-> ");
         format_action(best_action);

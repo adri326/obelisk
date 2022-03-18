@@ -247,8 +247,8 @@ pub fn update(mut players: Vec<Player>, actions: &[Action]) -> Vec<Player> {
 
     for (n, player) in players.iter_mut().enumerate() {
         match actions[n] {
-            Action::Wall if player.walls < MAX_WALLS && !player.sieged => player.walls += 1,
-            Action::Barracks if player.barracks < MAX_BARRACKS && !player.sieged => {
+            Action::Wall if player.walls < MAX_WALLS => player.walls += 1,
+            Action::Barracks if player.barracks < MAX_BARRACKS => {
                 player.barracks += 1
             }
             Action::Obelisk if player.obelisks < MAX_OBELISKS && !player.sieged => {

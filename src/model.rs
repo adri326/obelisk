@@ -4,6 +4,7 @@ use std::fmt::{Display, Debug};
 use std::borrow::Borrow;
 use tract_onnx::prelude::*;
 use super::*;
+use super::monte_carlo::AiFn;
 
 pub const N_ACTIONS: usize = 8;
 pub const MAX_PLAYERS: usize = 16;
@@ -162,23 +163,61 @@ pub fn run_model(
     Ok(res)
 }
 
-pub type ModelFact = impl Fact + Hash + Clone + 'static;
-pub type ModelOp = impl Debug + Display + AsRef<dyn Op + 'static> + AsMut<dyn Op + 'static> + Clone + Hash + 'static;
-pub type ModelGraph = impl Borrow<Graph<ModelFact, ModelOp>> + Hash;
-pub type Model = SimplePlan<ModelFact, ModelOp, ModelGraph>;
+// Workaround for issue https://github.com/rust-lang/rust/issues/55997
+mod workaround_55997 {
+    use super::*;
 
-pub fn load_model(path: impl AsRef<Path>) -> TractResult<Model> {
-    // debug_assert!(INPUT_SIZE == 272);
-    tract_onnx::onnx()
-        .model_for_path(path)?
-        .with_input_fact(0, InferenceFact::dt_shape(
-            DATUM_PREC,
-            &[1, INPUT_SIZE],
-        ))?
-        .with_output_fact(0, InferenceFact::dt_shape(
-            DATUM_PREC,
-            &[1, MAX_ACTIONS]
-        ))?
-        .into_optimized()?
-        .into_runnable()
+    pub type ModelFact = impl Fact + Hash + Clone + 'static;
+    pub type ModelOp = impl Debug + Display + AsRef<dyn Op + 'static> + AsMut<dyn Op + 'static> + Clone + Hash + 'static;
+    pub type ModelGraph = impl Borrow<Graph<ModelFact, ModelOp>> + Hash;
+    pub type Model = SimplePlan<ModelFact, ModelOp, ModelGraph>;
+
+    pub fn load_model(path: impl AsRef<Path>) -> TractResult<Model> {
+        // debug_assert!(INPUT_SIZE == 272);
+        tract_onnx::onnx()
+            .model_for_path(path)?
+            .with_input_fact(0, InferenceFact::dt_shape(
+                DATUM_PREC,
+                &[1, INPUT_SIZE],
+            ))?
+            .with_output_fact(0, InferenceFact::dt_shape(
+                DATUM_PREC,
+                &[1, MAX_ACTIONS]
+            ))?
+            .into_optimized()?
+            .into_runnable()
+    }
+}
+pub use workaround_55997::*;
+
+pub type ModelFn<'a> = impl 'a + Copy + Send + (for<'c> AiFn<'c, rand::rngs::ThreadRng>);
+
+pub fn wrap_model<'a>(model: &'a Model) -> ModelFn<'a> {
+    use rand::Rng;
+    move |players: &[Player], index: usize, _round: usize, previous_actions: &[Action], rng: &mut rand::rngs::ThreadRng| {
+        let possible_actions = players[index].possible_actions(
+            players.iter().enumerate().filter(|(x, _p)| *x != index),
+        );
+
+        let predictions = run_model(
+            model,
+            previous_actions,
+            players,
+            index,
+            &possible_actions
+        ).unwrap();
+
+        let best_action = predictions[0].0;
+
+        let choice = rng.gen::<ModelPrec>();
+        let mut sum = 0.0;
+        for (action, prob) in predictions {
+            sum += prob;
+            if sum > choice {
+                return action
+            }
+        }
+
+        best_action
+    }
 }
