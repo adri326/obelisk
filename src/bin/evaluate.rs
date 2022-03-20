@@ -1,6 +1,6 @@
 use obelisk::*;
 use obelisk::monte_carlo::*;
-use obelisk::genetic_basic::*;
+// use obelisk::genetic_basic::*;
 use obelisk::model::*;
 #[allow(unused_imports)]
 use rand::Rng;
@@ -8,11 +8,11 @@ use scoped_threadpool::Pool;
 use std::time::Instant;
 
 fn main() -> serde_json::Result<()> {
-    let agents = std::fs::read_to_string("target/out.json").expect("Couldn't open target/out.json");
-    let agents: Vec<SimpleAgent> = serde_json::from_str(&agents)?;
+    // let agents = std::fs::read_to_string("target/out.json").expect("Couldn't open target/out.json");
+    // let agents: Vec<SimpleAgent> = serde_json::from_str(&agents)?;
 
-    const SAMPLE_AGENTS: usize = 25000;
-    assert!(SAMPLE_AGENTS < agents.len());
+    // const SAMPLE_AGENTS: usize = 25000;
+    // assert!(SAMPLE_AGENTS < agents.len());
 
     let model = load_model("target/model.onnx").unwrap();
 
@@ -62,12 +62,14 @@ fn main() -> serde_json::Result<()> {
 
     let start = Instant::now();
     const TURN: usize = 4;
-    let max_rounds = agents[0].genome.len() - TURN;
+    let max_rounds = 50 - TURN;
+    // let max_rounds = agents[0].genome.len() - TURN;
 
     let constraints: Vec<(usize, Action)> = vec![
         // (0, Action::Defend),
         // (4, Action::Attack(7)),
-        // (8, Action::Attack(0))
+        // (8, Action::Attack(0)),
+        // (4, Action::Recruit),
     ];
 
     pool.scoped(|scope| {

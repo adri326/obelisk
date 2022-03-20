@@ -232,7 +232,7 @@ pub fn compute_loss(players: &[Player], index: usize) -> f64 {
     }
 
     res += player.defeats as f64 * 0.75; // penalty for losing sieges
-    res += (player.victories as f64 * -0.5).exp() * 6.0; // bonus for winning sieges
+    res += (player.victories as f64 * -0.5).exp() * 3.0; // bonus for winning sieges
 
     res
 }

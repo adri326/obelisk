@@ -9,11 +9,11 @@ fn main() -> std::io::Result<()> {
     let agents: Vec<SimpleAgent> = serde_json::from_str(&agents).expect("Couldn't parse target/out.json");
 
     let settings = TrainingSettings {
-        n_data: 128000,
-        samples: 6000,
+        n_data: 48000,
+        samples: 2000,
         n_players: 8..16,
-        initial_actions: 2..30,
-        threads: 16,
+        initial_actions: 0..30,
+        threads: 12,
         ..Default::default()
     };
 

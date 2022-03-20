@@ -5,9 +5,9 @@ use std::io::Write;
 use std::sync::Mutex;
 
 pub fn main() -> std::io::Result<()> {
-    const N: usize = 10;
+    const N: usize = 100;
     let settings = SimulationSettings {
-        sub_rounds: 50,
+        sub_rounds: 100,
         group_size: 12,
         n_steps: 50,
         population: 100 * N,
@@ -21,11 +21,13 @@ pub fn main() -> std::io::Result<()> {
         ..Default::default()
     };
 
+    println!("{:#?}", settings);
+
     println!("Initializing {} agents...", settings.population);
     let mut agents = new_agents(settings);
     println!("Initialization done!");
 
-    const N_THREADS: usize = 4;
+    const N_THREADS: usize = 16;
     let mut pool = Pool::new(N_THREADS as u32);
 
     for round in 1..=1000 {
