@@ -84,7 +84,7 @@ fn main() -> serde_json::Result<()> {
                 let (best_action, actions) = mc_best_action(
                     players,
                     index,
-                    &previous_actions[index],
+                    &previous_actions,
                     constraints,
                     samples,
                     max_rounds,

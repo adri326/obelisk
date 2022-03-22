@@ -127,14 +127,25 @@ impl Player {
             self.sieged = true;
             self.defeats += 1;
             attacker.victories += 1;
-            self.obelisks -= 1;
-            attacker.obelisks += 1;
 
             if self.is_target {
                 attacker.walls += self.walls;
                 self.walls = 0;
                 attacker.barracks += self.barracks;
                 self.barracks = 0;
+                attacker.obelisks += self.obelisks;
+                self.obelisks = 0;
+            } else {
+                // if self.obelisks > 1 {
+                //     let amount = (self.obelisks - 1).min(attacker.soldiers.min(255) as u8);
+                //     self.obelisks -= amount;
+                //     attacker.obelisks += amount;
+                // } else {
+                //     self.obelisks -= 1;
+                //     attacker.obelisks += 1;
+                // }
+                self.obelisks -= 1;
+                attacker.obelisks += 1;
             }
         }
     }

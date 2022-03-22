@@ -179,7 +179,7 @@ where
         let (best, mut losses) = mc_best_action(
             &players,
             player_index,
-            &previous_actions[player_index],
+            &previous_actions,
             vec![],
             settings.samples,
             settings.max_rounds - initial_rounds,

@@ -9,7 +9,7 @@ pub trait AiFn<'x, R: 'x> = Fn(&'x [Player], usize, usize, &'x [Action], &'x mut
 pub fn mc_best_action<Ai, Loss>(
     players: &[Player],
     index: usize,
-    previous_actions: &[Action],
+    previous_actions: &[Vec<Action>],
     mut constraints: Vec<(usize, Action)>,
     samples: usize,
     max_rounds: usize,
@@ -21,6 +21,8 @@ where
     Ai: for<'c> AiFn<'c, rand::rngs::ThreadRng> + Copy,
     Loss: for<'c> Fn(&'c [Player], usize) -> f64 + Copy,
 {
+    assert!(previous_actions.len() == players.len());
+
     let iter = players.iter().enumerate().filter(|(n, _p)| *n != index);
 
     let mut best = (f64::INFINITY, Action::None);
@@ -51,7 +53,7 @@ where
 
 pub fn monte_carlo<Ai, Loss>(
     players: &[Player],
-    previous_actions: &[Action],
+    previous_actions: &[Vec<Action>],
     constraints: &[(usize, Action)],
     samples: usize,
     max_rounds: usize,
@@ -80,7 +82,7 @@ where
             actions[index] = action;
         }
 
-        let final_state = simulate(players, actions, ai, &mut rng, max_rounds, round_offset);
+        let final_state = simulate(players, actions, previous_actions, ai, &mut rng, max_rounds, round_offset);
         let loss = compute_loss(&final_state);
 
         sum += loss;
@@ -97,6 +99,7 @@ where
 fn simulate<Ai, R>(
     mut players: Vec<Player>,
     mut actions: Vec<Action>,
+    previous_actions: &[Vec<Action>],
     ai: Ai,
     rng: &mut R,
     max_rounds: usize,
@@ -108,11 +111,14 @@ where
 {
     players = update(players, &actions);
 
-    let mut previous_actions = Vec::with_capacity(players.len());
-    for &a in actions.iter() {
+    let mut prev = Vec::with_capacity(players.len());
+    for (n, &a) in actions.iter().enumerate() {
         let mut vec = Vec::with_capacity(max_rounds);
+        for &action in previous_actions[n].iter() {
+            vec.push(action);
+        }
         vec.push(a);
-        previous_actions.push(vec);
+        prev.push(vec);
     }
 
     for round in 1..max_rounds {
@@ -121,9 +127,9 @@ where
         }
 
         for n in 0..players.len() {
-            let previous_actions = &mut previous_actions[n];
-            actions[n] = ai(&players, n, round + round_offset, &*previous_actions, rng);
-            previous_actions.push(actions[n]);
+            let prev = &mut prev[n];
+            actions[n] = ai(&players, n, round + round_offset, &*prev, rng);
+            prev.push(actions[n]);
         }
 
         players = update(players, &actions);
