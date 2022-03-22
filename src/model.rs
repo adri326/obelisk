@@ -158,7 +158,7 @@ pub fn run_model(
         x.1 /= sum;
     }
 
-    res.sort_unstable_by(|(_, a), (_, b)| b.partial_cmp(&a).unwrap());
+    res.sort_unstable_by(|(_, a), (_, b)| b.partial_cmp(&a).unwrap_or(std::cmp::Ordering::Equal));
 
     Ok(res)
 }

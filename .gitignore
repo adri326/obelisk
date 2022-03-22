@@ -1,6 +1,9 @@
 node_modules/
 __pycache__
 
+constraints.json
+players.json
+
 # Added by cargo
 
 /target

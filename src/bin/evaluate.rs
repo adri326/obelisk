@@ -6,6 +6,7 @@ use obelisk::model::*;
 use rand::Rng;
 use scoped_threadpool::Pool;
 use std::time::Instant;
+use std::fs::read_to_string;
 
 fn main() -> serde_json::Result<()> {
     // let agents = std::fs::read_to_string("target/out.json").expect("Couldn't open target/out.json");
@@ -28,33 +29,39 @@ fn main() -> serde_json::Result<()> {
 
     let compute_loss = obelisk::genetic_basic::compute_loss;
 
-    let players = vec![
-        Player::with_values(2, 1, 4, 2, 0),
-        Player::with_values(4, 1, 2, 2, 0),
-        Player::with_values(3, 3, 2, 2, 0),
-        Player::with_values(5, 1, 1, 2, 0),
-        Player::with_values(2, 7, 3, 1, 0),
-        Player::with_values(4, 1, 2, 2, 0),
-        // Player::with_values(2, 0, 2, 0, 0).make_target(),
-        Player::with_values(2, 4, 3, 2, 0),
-        Player::with_values(3, 1, 2, 2, 0),
-        Player::with_values(1, 5, 3, 2, 0),
-        Player::with_values(2, 2, 3, 2, 0),
-    ];
+    // let players = vec![
+    //     Player::with_values(2, 1, 4, 2, 0),
+    //     Player::with_values(4, 1, 2, 2, 0),
+    //     Player::with_values(3, 3, 2, 2, 0),
+    //     Player::with_values(5, 1, 1, 2, 0),
+    //     Player::with_values(2, 7, 3, 1, 0),
+    //     Player::with_values(4, 1, 2, 2, 0),
+    //     // Player::with_values(2, 0, 2, 0, 0).make_target(),
+    //     Player::with_values(2, 4, 3, 2, 0),
+    //     Player::with_values(3, 1, 2, 2, 0),
+    //     Player::with_values(1, 5, 3, 2, 0),
+    //     Player::with_values(2, 2, 3, 2, 0),
+    // ];
 
-    let names = vec![
-        "The Nameless",
-        "TNW Wajaeria",
-        "S.O.N.O.C.",
-        "New Kuiper",
-        "Space Rocks®",
-        "Trars 01",
-        // "Golden Heights",
-        "NaeNaeVille",
-        "Kujou Clan",
-        "NN Empire",
-        "I.A.S.",
-    ];
+    let (names, players, actions): (Vec<String>, Vec<Vec<usize>>, Vec<Vec<Action>>) = serde_json::from_str(&read_to_string("./players.json").unwrap()).unwrap();
+    let players = players.into_iter().map(|stats| {
+        if stats.len() >= 6 {
+            Player::with_values(stats[0] as u8, stats[1] as u32, stats[2] as u8, stats[3] as u8, stats[4] as u8).make_target()
+        } else {
+            Player::with_values(stats[0] as u8, stats[1] as u32, stats[2] as u8, stats[3] as u8, stats[4] as u8)
+        }
+    }).collect::<Vec<_>>();
+
+    let mut previous_actions = Vec::with_capacity(players.len());
+    for n in 0..players.len() {
+        let mut tmp = Vec::with_capacity(actions.len());
+        for previous_actions in actions.iter() {
+            tmp.push(previous_actions[n]);
+        }
+        previous_actions.push(tmp);
+    }
+
+    std::mem::drop(actions);
 
     let mut pool = Pool::new(players.len() as u32);
     let samples: usize = std::env::args().last().map(|s| s.parse::<usize>().ok()).flatten().unwrap_or(1000);
@@ -65,20 +72,26 @@ fn main() -> serde_json::Result<()> {
     let max_rounds = 50 - TURN;
     // let max_rounds = agents[0].genome.len() - TURN;
 
-    let constraints: Vec<(usize, Action)> = vec![
-        // (0, Action::Defend),
-        // (4, Action::Attack(7)),
-        // (8, Action::Attack(0)),
-        // (4, Action::Recruit),
-    ];
+    let constraints: Vec<(usize, Action)> = serde_json::from_str(&read_to_string("./constraints.json").unwrap()).unwrap();
 
     pool.scoped(|scope| {
         for index in 0..players.len() {
             let players = &players;
             let res = &res;
             let constraints = constraints.clone();
+            let previous_actions = &previous_actions;
             scope.execute(move || {
-                let (best_action, actions) = mc_best_action(players, index, constraints, samples, max_rounds, TURN, ai, compute_loss);
+                let (best_action, actions) = mc_best_action(
+                    players,
+                    index,
+                    &previous_actions[index],
+                    constraints,
+                    samples,
+                    max_rounds,
+                    TURN,
+                    ai,
+                    compute_loss
+                );
 
                 res.lock().unwrap().push((index, best_action, actions));
             });

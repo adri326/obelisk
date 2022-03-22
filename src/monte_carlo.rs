@@ -9,6 +9,7 @@ pub trait AiFn<'x, R: 'x> = Fn(&'x [Player], usize, usize, &'x [Action], &'x mut
 pub fn mc_best_action<Ai, Loss>(
     players: &[Player],
     index: usize,
+    previous_actions: &[Action],
     mut constraints: Vec<(usize, Action)>,
     samples: usize,
     max_rounds: usize,
@@ -36,7 +37,7 @@ where
 
         *constraints.last_mut().unwrap() = (index, action);
 
-        let (loss, variance) = monte_carlo(players, &constraints, samples, max_rounds, round_offset, ai, compute_loss);
+        let (loss, variance) = monte_carlo(players, previous_actions, &constraints, samples, max_rounds, round_offset, ai, compute_loss);
 
         actions.push((action, loss, variance));
 
@@ -50,6 +51,7 @@ where
 
 pub fn monte_carlo<Ai, Loss>(
     players: &[Player],
+    previous_actions: &[Action],
     constraints: &[(usize, Action)],
     samples: usize,
     max_rounds: usize,
