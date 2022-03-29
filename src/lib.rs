@@ -82,7 +82,7 @@ impl Player {
     #[inline(always)]
     pub fn can_be_attacked(&self) -> bool {
         // Implicitely returns false if the number of obelisks is null
-        return !self.lost() && !self.won();
+        return !self.lost() && !self.won() || self.is_target;
     }
 
     #[inline]
